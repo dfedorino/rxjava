@@ -2,12 +2,6 @@ package com.dfedorino.rxjava.core;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * Реализация ObservableEmitter для Observable.create().
- * Обеспечивает потокобезопасную отправку элементов и управление подпиской.
- *
- * @param <T> тип элементов, испускаемых этим эмиттером
- */
 final class CreateEmitter<T> implements ObservableEmitter<T>, Disposable {
 
     private final Observer<T> observer;
