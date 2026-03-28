@@ -1,28 +1,11 @@
 package com.dfedorino.rxjava.core;
 
-/**
- * Абстрактный класс, представляющий источник данных реактивного потока.
- * Observable испускает элементы, которые наблюдаются через Observer.
- *
- * @param <T> тип элементов, испускаемых этим Observable
- */
 public abstract class Observable<T> {
 
-    /**
-     * Подписывает Observer на поток данных этого Observable.
-     *
-     * @param observer Observer, который будет получать элементы потока
-     */
     public void subscribe(Observer<T> observer) {
         subscribeActual(observer);
     }
 
-    /**
-     * Абстрактный метод для фактической реализации подписки.
-     * Вызывается методом subscribe().
-     *
-     * @param observer Observer, который будет получать элементы потока
-     */
     protected abstract void subscribeActual(Observer<T> observer);
 
     /**
