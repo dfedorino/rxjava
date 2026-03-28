@@ -1,4 +1,4 @@
-package com.dfedorino.rxjava.disposable;
+package com.dfedorino.rxjava.core;
 
 /**
  * Интерфейс для управления подпиской и её отмены.

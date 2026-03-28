@@ -1,7 +1,5 @@
 package com.dfedorino.rxjava.core;
 
-import com.dfedorino.rxjava.disposable.Disposable;
-
 /**
  * Интерфейс для получения уведомлений от Observable.
  * Observer подписывается на Observable и получает элементы потока,

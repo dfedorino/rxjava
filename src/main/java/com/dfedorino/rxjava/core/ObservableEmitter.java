@@ -1,7 +1,5 @@
 package com.dfedorino.rxjava.core;
 
-import com.dfedorino.rxjava.disposable.Disposable;
-
 /**
  * Интерфейс для эмиттера элементов Observable.
  * Предоставляет методы для отправки элементов, ошибок и уведомлений о завершении.

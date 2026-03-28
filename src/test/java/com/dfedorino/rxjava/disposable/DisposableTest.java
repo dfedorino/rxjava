@@ -1,5 +1,6 @@
 package com.dfedorino.rxjava.disposable;
 
+import com.dfedorino.rxjava.core.Disposable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 
