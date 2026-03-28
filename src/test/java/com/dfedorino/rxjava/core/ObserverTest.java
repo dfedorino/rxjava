@@ -1,5 +1,6 @@
 package com.dfedorino.rxjava.core;
 
+import com.dfedorino.rxjava.disposable.Disposable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 
@@ -17,6 +18,10 @@ class ObserverTest {
         // Arrange
         List<String> received = new ArrayList<>();
         Observer<String> observer = new Observer<>() {
+            @Override
+            public void onSubscribe(Disposable d) {
+            }
+
             @Override
             public void onNext(String item) {
                 received.add(item);
@@ -46,8 +51,12 @@ class ObserverTest {
     void testOnError() {
         // Arrange
         List<Throwable> received = new ArrayList<>();;
-        
+
         Observer<String> observer = new Observer<>() {
+            @Override
+            public void onSubscribe(Disposable d) {
+            }
+
             @Override
             public void onNext(String item) {
             }
@@ -75,8 +84,12 @@ class ObserverTest {
     void testOnComplete() {
         // Arrange
         AtomicBoolean completed = new AtomicBoolean(false);
-        
+
         Observer<String> observer = new Observer<>() {
+            @Override
+            public void onSubscribe(Disposable d) {
+            }
+
             @Override
             public void onNext(String item) {
             }
@@ -104,6 +117,10 @@ class ObserverTest {
         // Arrange
         Object[] received = new Object[1];
         Observer<String> observer = new Observer<>() {
+            @Override
+            public void onSubscribe(Disposable d) {
+            }
+
             @Override
             public void onNext(String item) {
                 received[0] = item;
