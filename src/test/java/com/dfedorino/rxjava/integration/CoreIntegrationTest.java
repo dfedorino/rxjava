@@ -51,15 +51,17 @@ class CoreIntegrationTest {
                     emitter.onNext(1);
                     emitter.onNext(2);
                     emitter.onNext(3);
+                    emitter.onNext(4);
                     emitter.onComplete();
                 })
                 .map(i -> "Value-" + i)
+                .filter(s -> !"Value-2".equals(s))
                 .subscribe(observer);
 
         // Assert
         assertNotNull(disposableRef.get());
         assertFalse(disposableRef.get().isDisposed());
-        assertEquals(List.of("Value-1", "Value-2", "Value-3"), received);
+        assertEquals(List.of("Value-1", "Value-3", "Value-4"), received);
         assertTrue(completed.get());
     }
 

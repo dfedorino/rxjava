@@ -1,8 +1,10 @@
 package com.dfedorino.rxjava.core;
 
+import com.dfedorino.rxjava.operators.predicate.FilterObservable;
 import com.dfedorino.rxjava.operators.transform.MapObservable;
 
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 public abstract class Observable<T> {
 
@@ -43,5 +45,15 @@ public abstract class Observable<T> {
      */
     public <R> Observable<R> map(Function<? super T, ? extends R> mapper) {
         return new MapObservable<>(this, mapper);
+    }
+
+    /**
+     * Пропускает только элементы, удовлетворяющие заданному предикату.
+     *
+     * @param predicate предикат для фильтрации элементов
+     * @return новый Observable с отфильтрованными элементами
+     */
+    public Observable<T> filter(Predicate<? super T> predicate) {
+        return new FilterObservable<>(this, predicate);
     }
 }
