@@ -47,21 +47,26 @@ class CoreIntegrationTest {
         };
 
         // Act
-        Observable.create(emitter -> {
+        Observable.<Integer>create(emitter -> {
                     emitter.onNext(1);
                     emitter.onNext(2);
                     emitter.onNext(3);
                     emitter.onNext(4);
                     emitter.onComplete();
                 })
+                .flatMap(x -> Observable.<Integer>create(e -> {
+                    e.onNext(x);
+                    e.onNext(x * 10);
+                    e.onComplete();
+                }))
                 .map(i -> "Value-" + i)
-                .filter(s -> !"Value-2".equals(s))
+                .filter(s -> !s.contains("Value-2"))
                 .subscribe(observer);
 
         // Assert
         assertNotNull(disposableRef.get());
-        assertFalse(disposableRef.get().isDisposed());
-        assertEquals(List.of("Value-1", "Value-3", "Value-4"), received);
+        assertTrue(disposableRef.get().isDisposed());
+        assertEquals(List.of("Value-1", "Value-10", "Value-3", "Value-30", "Value-4", "Value-40"), received);
         assertTrue(completed.get());
     }
 

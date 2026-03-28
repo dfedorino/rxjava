@@ -1,6 +1,7 @@
 package com.dfedorino.rxjava.core;
 
 import com.dfedorino.rxjava.operators.predicate.FilterObservable;
+import com.dfedorino.rxjava.operators.transform.FlatMapObservable;
 import com.dfedorino.rxjava.operators.transform.MapObservable;
 
 import java.util.function.Function;
@@ -55,5 +56,17 @@ public abstract class Observable<T> {
      */
     public Observable<T> filter(Predicate<? super T> predicate) {
         return new FilterObservable<>(this, predicate);
+    }
+
+    /**
+     * Преобразует каждый элемент потока в новый Observable с помощью заданной
+     * функции mapper и сливает результаты всех внутренних Observable в один поток.
+     *
+     * @param mapper функция для преобразования каждого элемента в Observable
+     * @param <R> тип элементов результирующего Observable
+     * @return новый Observable с объединёнными результатами
+     */
+    public <R> Observable<R> flatMap(Function<? super T, ? extends Observable<? extends R>> mapper) {
+        return new FlatMapObservable<>(this, mapper);
     }
 }
