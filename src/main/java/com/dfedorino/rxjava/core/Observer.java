@@ -1,5 +1,7 @@
 package com.dfedorino.rxjava.core;
 
+import com.dfedorino.rxjava.disposable.Disposable;
+
 /**
  * Интерфейс для получения уведомлений от Observable.
  * Observer подписывается на Observable и получает элементы потока,
@@ -8,7 +10,15 @@ package com.dfedorino.rxjava.core;
  * @param <T> тип элементов, получаемых этим Observer
  */
 public interface Observer<T> {
-    
+
+    /**
+     * Вызывается сразу после подписки на Observable.
+     * Предоставляет Disposable для управления подпиской.
+     *
+     * @param d Disposable для отмены подписки
+     */
+    void onSubscribe(Disposable d);
+
     /**
      * Вызывается при получении следующего элемента потока.
      *
