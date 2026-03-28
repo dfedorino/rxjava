@@ -1,5 +1,9 @@
 package com.dfedorino.rxjava.core;
 
+import com.dfedorino.rxjava.operators.transform.MapObservable;
+
+import java.util.function.Function;
+
 public abstract class Observable<T> {
 
     public void subscribe(Observer<T> observer) {
@@ -28,5 +32,16 @@ public abstract class Observable<T> {
                 }
             }
         };
+    }
+
+    /**
+     * Преобразует каждый элемент потока с помощью заданной функции mapper.
+     *
+     * @param mapper функция для преобразования элементов
+     * @param <R> тип элементов результирующего Observable
+     * @return новый Observable с преобразованными элементами
+     */
+    public <R> Observable<R> map(Function<? super T, ? extends R> mapper) {
+        return new MapObservable<>(this, mapper);
     }
 }
