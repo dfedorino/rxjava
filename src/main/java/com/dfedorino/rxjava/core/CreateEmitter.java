@@ -1,7 +1,5 @@
 package com.dfedorino.rxjava.core;
 
-import com.dfedorino.rxjava.disposable.Disposable;
-
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -10,9 +8,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * @param <T> тип элементов, испускаемых этим эмиттером
  */
-final class CreateEmitter<T> extends AtomicBoolean implements ObservableEmitter<T>, Disposable {
+final class CreateEmitter<T> implements ObservableEmitter<T>, Disposable {
 
     private final Observer<T> observer;
+    private final AtomicBoolean disposed = new AtomicBoolean(false);
+    private final AtomicBoolean terminated = new AtomicBoolean(false);
 
     CreateEmitter(Observer<T> observer) {
         this.observer = observer;
@@ -20,32 +20,33 @@ final class CreateEmitter<T> extends AtomicBoolean implements ObservableEmitter<
 
     @Override
     public void onNext(T value) {
-        if (!get()) {
+        if (!terminated.get() && !disposed.get()) {
             observer.onNext(value);
         }
     }
 
     @Override
     public void onError(Throwable error) {
-        if (compareAndSet(false, true)) {
+        if (terminated.compareAndSet(false, true)) {
+            disposed.set(true); // onError автоматически вызывает dispose
             observer.onError(error);
         }
     }
 
     @Override
     public void onComplete() {
-        if (compareAndSet(false, true)) {
+        if (terminated.compareAndSet(false, true)) {
             observer.onComplete();
         }
     }
 
     @Override
     public void dispose() {
-        set(true);
+        disposed.set(true);
     }
 
     @Override
     public boolean isDisposed() {
-        return get();
+        return disposed.get();
     }
 }
