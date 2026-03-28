@@ -1,11 +1,11 @@
 package com.dfedorino.rxjava.integration;
 
+import com.dfedorino.rxjava.core.Disposable;
 import com.dfedorino.rxjava.core.Observable;
 import com.dfedorino.rxjava.core.ObservableEmitter;
 import com.dfedorino.rxjava.core.Observer;
-import com.dfedorino.rxjava.core.Disposable;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,18 +20,18 @@ class CoreIntegrationTest {
     @DisplayName("Базовый поток данных: Observable создаётся через create(), Observer получает элементы и завершает поток")
     void testCompleteFlow() {
         // Arrange
-        List<Integer> received = new ArrayList<>();
+        List<String> received = new ArrayList<>();
         AtomicReference<Disposable> disposableRef = new AtomicReference<>();
         AtomicBoolean completed = new AtomicBoolean(false);
 
-        Observer<Integer> observer = new Observer<>() {
+        Observer<String> observer = new Observer<>() {
             @Override
             public void onSubscribe(Disposable d) {
                 disposableRef.set(d);
             }
 
             @Override
-            public void onNext(Integer item) {
+            public void onNext(String item) {
                 received.add(item);
             }
 
@@ -46,20 +46,20 @@ class CoreIntegrationTest {
             }
         };
 
-        Observable<Integer> observable = Observable.create(emitter -> {
-            emitter.onNext(1);
-            emitter.onNext(2);
-            emitter.onNext(3);
-            emitter.onComplete();
-        });
-
         // Act
-        observable.subscribe(observer);
+        Observable.create(emitter -> {
+                    emitter.onNext(1);
+                    emitter.onNext(2);
+                    emitter.onNext(3);
+                    emitter.onComplete();
+                })
+                .map(i -> "Value-" + i)
+                .subscribe(observer);
 
         // Assert
         assertNotNull(disposableRef.get());
         assertFalse(disposableRef.get().isDisposed());
-        assertEquals(List.of(1, 2, 3), received);
+        assertEquals(List.of("Value-1", "Value-2", "Value-3"), received);
         assertTrue(completed.get());
     }
 
