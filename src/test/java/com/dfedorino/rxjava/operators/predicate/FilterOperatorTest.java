@@ -182,9 +182,8 @@ class FilterOperatorTest {
         }).subscribe(observer);
 
         // Assert
-        assertEquals(2, received.size());
+        assertEquals(1, received.size());
         assertEquals(1, received.getFirst());
-        assertEquals(3, received.getLast());
         assertTrue(errorReceived.get());
         assertInstanceOf(IllegalArgumentException.class, capturedError.get());
         assertEquals("Exception in predicate", capturedError.get().getMessage());

@@ -12,7 +12,7 @@ import com.dfedorino.rxjava.core.Observer;
 public final class FlatMapInnerObserver<R> implements Observer<R>, Disposable {
 
     private final FlatMapObserver<?, R> parent;
-    private Disposable disposable;
+    private volatile Disposable disposable;
 
     /**
      * Создаёт FlatMapInnerObserver для подписки на внутренний Observable.
