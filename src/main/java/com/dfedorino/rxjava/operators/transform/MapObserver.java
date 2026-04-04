@@ -3,6 +3,7 @@ package com.dfedorino.rxjava.operators.transform;
 import com.dfedorino.rxjava.core.Disposable;
 import com.dfedorino.rxjava.core.Observer;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 /**
@@ -16,7 +17,8 @@ public final class MapObserver<T, R> implements Observer<T>, Disposable {
 
     private final Observer<R> downstream;
     private final Function<? super T, ? extends R> mapper;
-    private Disposable disposable;
+    private volatile Disposable disposable;
+    private final AtomicBoolean terminated = new AtomicBoolean(false);
 
     /**
      * Создаёт MapObserver для преобразования элементов.
@@ -37,6 +39,10 @@ public final class MapObserver<T, R> implements Observer<T>, Disposable {
 
     @Override
     public void onNext(T item) {
+        if (terminated.get()) {
+            return;
+        }
+        
         try {
             R result = mapper.apply(item);
             downstream.onNext(result);
@@ -47,12 +53,16 @@ public final class MapObserver<T, R> implements Observer<T>, Disposable {
 
     @Override
     public void onError(Throwable t) {
-        downstream.onError(t);
+        if (terminated.compareAndSet(false, true)) {
+            downstream.onError(t);
+        }
     }
 
     @Override
     public void onComplete() {
-        downstream.onComplete();
+        if (terminated.compareAndSet(false, true)) {
+            downstream.onComplete();
+        }
     }
 
     @Override

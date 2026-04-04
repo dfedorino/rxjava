@@ -4,9 +4,11 @@ import com.dfedorino.rxjava.core.Disposable;
 import com.dfedorino.rxjava.core.Observable;
 import com.dfedorino.rxjava.core.Observer;
 
-import java.util.function.Function;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 
 /**
  * Observer-обёртка, который управляет подписками на внутренние Observable
@@ -20,10 +22,11 @@ public final class FlatMapObserver<T, R> implements Observer<T>, Disposable {
     final Observer<R> downstream;
     private final Function<? super T, ? extends Observable<? extends R>> mapper;
 
-    private Disposable upstreamDisposable;
+    private volatile Disposable upstreamDisposable;
     private final AtomicInteger activeSubscriptions;
     private final AtomicBoolean isDisposed;
     private final AtomicBoolean sourceCompleted;
+    private final Queue<Disposable> innerDisposables = new ConcurrentLinkedQueue<>();
 
     /**
      * Создаёт FlatMapObserver для управления слиянием потоков.
@@ -56,13 +59,16 @@ public final class FlatMapObserver<T, R> implements Observer<T>, Disposable {
             activeSubscriptions.incrementAndGet();
             subscribeInner(innerObservable);
         } catch (Throwable e) {
+            activeSubscriptions.decrementAndGet();
             onError(e);
         }
     }
 
     @SuppressWarnings("unchecked")
     private void subscribeInner(Observable<? extends R> innerObservable) {
-        ((Observable<R>) innerObservable).subscribe(new FlatMapInnerObserver<R>(this));
+        FlatMapInnerObserver<R> innerObserver = new FlatMapInnerObserver<>(this);
+        innerDisposables.add(innerObserver);
+        ((Observable<R>) innerObservable).subscribe(innerObserver);
     }
 
     @Override
@@ -124,7 +130,9 @@ public final class FlatMapObserver<T, R> implements Observer<T>, Disposable {
     }
 
     private void disposeAllInnerSubscriptions() {
-        // Устанавливаем счётчик в 0, чтобы гарантировать завершение
-        activeSubscriptions.set(0);
+        Disposable inner;
+        while ((inner = innerDisposables.poll()) != null) {
+            inner.dispose();
+        }
     }
 }
