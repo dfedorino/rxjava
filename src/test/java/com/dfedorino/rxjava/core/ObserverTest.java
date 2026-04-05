@@ -1,141 +1,159 @@
 package com.dfedorino.rxjava.core;
 
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
+@DisplayName("Observer")
 class ObserverTest {
-    
+
     @Test
-    @DisplayName("Observer получает элементы через onNext")
-    void testOnNext() {
+    @DisplayName("should receive items via onNext")
+    void shouldReceiveItemsViaOnNext() {
         // Arrange
         List<String> received = new ArrayList<>();
-        Observer<String> observer = new Observer<>() {
-            @Override
-            public void onSubscribe(Disposable d) {
-            }
+        Observer<String> observer = createTestObserver(
+                received::add,
+                null,
+                null,
+                null
+        );
 
-            @Override
-            public void onNext(String item) {
-                received.add(item);
-            }
-
-            @Override
-            public void onError(Throwable t) {
-            }
-
-            @Override
-            public void onComplete() {
-            }
-        };
-        
         // Act
         observer.onNext("Hello");
         observer.onNext("World");
-        
+
         // Assert
-        assertEquals(2, received.size());
-        assertEquals("Hello", received.get(0));
-        assertEquals("World", received.get(1));
+        assertThat(received)
+                .hasSize(2)
+                .containsExactly("Hello", "World");
     }
-    
+
     @Test
-    @DisplayName("Observer получает ошибку через onError")
-    void testOnError() {
+    @DisplayName("should receive error via onError")
+    void shouldReceiveErrorViaOnError() {
         // Arrange
-        List<Throwable> received = new ArrayList<>();;
-
-        Observer<String> observer = new Observer<>() {
-            @Override
-            public void onSubscribe(Disposable d) {
-            }
-
-            @Override
-            public void onNext(String item) {
-            }
-
-            @Override
-            public void onError(Throwable t) {
-                received.add(t);
-            }
-
-            @Override
-            public void onComplete() {
-            }
-        };
-        
-        // Act
+        AtomicReference<Throwable> receivedError = new AtomicReference<>();
+        Observer<String> observer = createTestObserver(
+                null,
+                receivedError::set,
+                null,
+                null
+        );
         RuntimeException testError = new RuntimeException("Test error");
+
+        // Act
         observer.onError(testError);
-        
+
         // Assert
-        assertEquals(testError, received.getFirst());
+        assertThat(receivedError.get()).isSameAs(testError);
     }
-    
+
     @Test
-    @DisplayName("Observer получает уведомление о завершении через onComplete")
-    void testOnComplete() {
+    @DisplayName("should receive completion notification via onComplete")
+    void shouldReceiveCompletionNotificationViaOnComplete() {
         // Arrange
         AtomicBoolean completed = new AtomicBoolean(false);
+        Observer<String> observer = createTestObserver(
+                null,
+                null,
+                () -> completed.set(true),
+                null
+        );
 
-        Observer<String> observer = new Observer<>() {
-            @Override
-            public void onSubscribe(Disposable d) {
-            }
-
-            @Override
-            public void onNext(String item) {
-            }
-
-            @Override
-            public void onError(Throwable t) {
-            }
-
-            @Override
-            public void onComplete() {
-                completed.set(true);
-            }
-        };
-        
         // Act
         observer.onComplete();
-        
+
         // Assert
-        assertTrue(completed.get());
+        assertThat(completed.get()).isTrue();
     }
-    
+
     @Test
-    @DisplayName("Observer корректно работает с null значениями")
-    void testOnNextWithNull() {
+    @DisplayName("should receive Disposable via onSubscribe")
+    void shouldReceiveDisposableViaOnSubscribe() {
         // Arrange
-        Object[] received = new Object[1];
-        Observer<String> observer = new Observer<>() {
+        AtomicReference<Disposable> receivedDisposable = new AtomicReference<>();
+        Observer<String> observer = createTestObserver(
+                null,
+                null,
+                null,
+                receivedDisposable::set
+        );
+        Disposable testDisposable = new Disposable() {
+            @Override
+            public void dispose() {}
+            @Override
+            public boolean isDisposed() { return false; }
+        };
+
+        // Act
+        observer.onSubscribe(testDisposable);
+
+        // Assert
+        assertThat(receivedDisposable.get()).isSameAs(testDisposable);
+    }
+
+    @Test
+    @DisplayName("should handle multiple callbacks in sequence")
+    void shouldHandleMultipleCallbacksInSequence() {
+        // Arrange
+        List<String> events = new ArrayList<>();
+        Observer<String> observer = createTestObserver(
+                item -> events.add("onNext:" + item),
+                t -> events.add("onError:" + t.getMessage()),
+                () -> events.add("onComplete"),
+                d -> events.add("onSubscribe")
+        );
+
+        // Act
+        Disposable testDisposable = new Disposable() {
+            @Override
+            public void dispose() {}
+            @Override
+            public boolean isDisposed() { return false; }
+        };
+        observer.onSubscribe(testDisposable);
+        observer.onNext("item1");
+        observer.onNext("item2");
+        observer.onComplete();
+
+        // Assert
+        assertThat(events)
+                .hasSize(4)
+                .containsExactly("onSubscribe", "onNext:item1", "onNext:item2", "onComplete");
+    }
+
+    private static <T> Observer<T> createTestObserver(
+            java.util.function.Consumer<T> onNext,
+            java.util.function.Consumer<Throwable> onError,
+            Runnable onComplete,
+            java.util.function.Consumer<Disposable> onSubscribe) {
+        return new Observer<>() {
             @Override
             public void onSubscribe(Disposable d) {
+                if (onSubscribe != null) onSubscribe.accept(d);
             }
 
             @Override
-            public void onNext(String item) {
-                received[0] = item;
+            public void onNext(T item) {
+                if (onNext != null) onNext.accept(item);
             }
 
             @Override
             public void onError(Throwable t) {
+                if (onError != null) onError.accept(t);
             }
 
             @Override
             public void onComplete() {
+                if (onComplete != null) onComplete.run();
             }
         };
-        
-        // Act & Assert
-        assertDoesNotThrow(() -> observer.onNext(null));
-        assertNull(received[0]);
     }
 }

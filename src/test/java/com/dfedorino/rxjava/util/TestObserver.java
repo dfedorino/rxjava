@@ -27,14 +27,8 @@ public final class TestObserver<T> implements Observer<T> {
         this.onSubscribeAction = onSubscribeAction != null ? onSubscribeAction : d -> {};
     }
 
-    public TestObserver(Consumer<T> onNextAction,
-                        Consumer<Throwable> onErrorAction,
-                        Runnable onCompleteAction) {
-        this(onNextAction, onErrorAction, onCompleteAction, null);
-    }
-
-    public TestObserver(Consumer<T> onNextAction) {
-        this(onNextAction, null, null, null);
+    public static <T> Builder<T> builder() {
+        return new Builder<>();
     }
 
     @Override
@@ -61,5 +55,36 @@ public final class TestObserver<T> implements Observer<T> {
     @Override
     public void onComplete() {
         onCompleteAction.run();
+    }
+
+    public static class Builder<T> {
+        private Consumer<T> onNextAction;
+        private Consumer<Throwable> onErrorAction;
+        private Runnable onCompleteAction;
+        private Consumer<Disposable> onSubscribeAction;
+
+        public Builder<T> onNextAction(Consumer<T> onNextAction) {
+            this.onNextAction = onNextAction;
+            return this;
+        }
+
+        public Builder<T> onErrorAction(Consumer<Throwable> onErrorAction) {
+            this.onErrorAction = onErrorAction;
+            return this;
+        }
+
+        public Builder<T> onCompleteAction(Runnable onCompleteAction) {
+            this.onCompleteAction = onCompleteAction;
+            return this;
+        }
+
+        public Builder<T> onSubscribeAction(Consumer<Disposable> onSubscribeAction) {
+            this.onSubscribeAction = onSubscribeAction;
+            return this;
+        }
+
+        public TestObserver<T> build() {
+            return new TestObserver<>(onNextAction, onErrorAction, onCompleteAction, onSubscribeAction);
+        }
     }
 }

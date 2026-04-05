@@ -1,82 +1,97 @@
 package com.dfedorino.rxjava.core;
 
 import com.dfedorino.rxjava.util.TestObserver;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
+@DisplayName("Observable")
 class ObservableTest {
 
     @Test
-    @DisplayName("Observable передаёт элементы через onNext")
-    void testObservableEmitsItems() {
+    @DisplayName("should emit items via onNext")
+    void shouldEmitItemsViaOnNext() {
+        // Arrange
         List<Integer> received = new ArrayList<>();
 
+        // Act
         Observable.create((ObservableOnSubscribe<Integer>) emitter -> {
                     emitter.onNext(1);
                     emitter.onNext(2);
                     emitter.onNext(3);
                     emitter.onComplete();
                 })
-                .subscribe(new TestObserver<>(received::add));
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(received::add)
+                        .build());
 
-        assertEquals(3, received.size());
-        assertEquals(List.of(1, 2, 3), received);
+        // Assert
+        assertThat(received)
+                .hasSize(3)
+                .containsExactly(1, 2, 3);
     }
 
     @Test
-    @DisplayName("Observable передаёт ошибку через onError")
-    void testObservableEmitsError() {
+    @DisplayName("should emit error via onError")
+    void shouldEmitErrorViaOnError() {
+        // Arrange
         List<Integer> received = new ArrayList<>();
         AtomicBoolean errorReceived = new AtomicBoolean(false);
-        Throwable[] capturedError = new Throwable[1];
+        AtomicReference<Throwable> capturedError = new AtomicReference<>();
         RuntimeException testError = new RuntimeException("Test error");
 
+        // Act
         Observable.create((ObservableOnSubscribe<Integer>) emitter -> {
                     emitter.onNext(1);
                     emitter.onError(testError);
                 })
-                .subscribe(new TestObserver<>(
-                        received::add,
-                        t -> {
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(received::add)
+                        .onErrorAction(t -> {
                             errorReceived.set(true);
-                            capturedError[0] = t;
-                        },
-                        null
-                ));
+                            capturedError.set(t);
+                        })
+                        .build());
 
-        assertEquals(1, received.size());
-        assertEquals(1, received.getFirst());
-        assertTrue(errorReceived.get());
-        assertEquals(testError, capturedError[0]);
+        // Assert
+        assertThat(received).hasSize(1).containsExactly(1);
+        assertThat(errorReceived.get()).isTrue();
+        assertThat(capturedError.get()).isSameAs(testError);
     }
 
     @Test
-    @DisplayName("Observable передаёт уведомление о завершении")
-    void testObservableEmitsComplete() {
+    @DisplayName("should emit completion notification")
+    void shouldEmitCompletionNotification() {
+        // Arrange
         AtomicBoolean completed = new AtomicBoolean(false);
 
+        // Act
         Observable.create((ObservableOnSubscribe<Integer>) emitter -> {
                     emitter.onNext(1);
                     emitter.onComplete();
                 })
-                .subscribe(new TestObserver<>(null, null, () -> completed.set(true)));
+                .subscribe(TestObserver.<Integer>builder()
+                        .onCompleteAction(() -> completed.set(true))
+                        .build());
 
-        assertTrue(completed.get());
+        // Assert
+        assertThat(completed.get()).isTrue();
     }
 
     @Test
-    @DisplayName("Observable прекращает эмиссию после dispose")
-    void testObservableStopsAfterDispose() {
+    @DisplayName("should stop emission after dispose")
+    void shouldStopEmissionAfterDispose() {
+        // Arrange
         List<Integer> received = new ArrayList<>();
         AtomicReference<ObservableEmitter<Integer>> emitterRef = new AtomicReference<>();
 
+        // Act
         Observable.<Integer>create(emitter -> {
                     emitterRef.set(emitter);
                     emitter.onNext(1);
@@ -84,95 +99,104 @@ class ObservableTest {
                     emitter.onNext(3);
                     emitter.onNext(4);
                 })
-                .subscribe(new TestObserver<>(
-                        item -> {
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(item -> {
                             received.add(item);
                             if (item == 2) {
                                 emitterRef.get().dispose();
                             }
-                        },
-                        null, null
-                ));
+                        })
+                        .build());
 
-        assertEquals(2, received.size());
-        assertEquals(List.of(1, 2), received);
+        // Assert
+        assertThat(received)
+                .hasSize(2)
+                .containsExactly(1, 2);
     }
 
     @Test
-    @DisplayName("Observable обрабатывает исключение в subscribe")
-    void testObservableHandlesExceptionInSubscribe() {
+    @DisplayName("should return true for isDisposed after dispose")
+    void shouldReturnTrueForIsDisposedAfterDispose() {
+        // Arrange
+        AtomicReference<ObservableEmitter<Integer>> emitterRef = new AtomicReference<>();
+
+        Observable.create(emitterRef::set)
+                .subscribe(TestObserver.<Integer>builder()
+                        .build());
+
+        // Act & Assert
+        assertThat(emitterRef.get().isDisposed()).isFalse();
+
+        emitterRef.get().dispose();
+
+        assertThat(emitterRef.get().isDisposed()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should handle exception thrown in subscribe")
+    void shouldHandleExceptionThrownInSubscribe() {
+        // Arrange
         AtomicBoolean errorReceived = new AtomicBoolean(false);
 
+        // Act
         Observable.<Integer>create(emitter -> {
                     throw new RuntimeException("Exception in subscribe");
                 })
-                .subscribe(new TestObserver<>(
-                        null,
-                        t -> {
-                            System.out.println(">> Exception: " + t.getMessage());
-                            errorReceived.set(true);
-                        },
-                        null
-                ));
+                .subscribe(TestObserver.<Integer>builder()
+                        .onErrorAction(t -> errorReceived.set(true))
+                        .build());
 
-        assertTrue(errorReceived.get());
+        // Assert
+        assertThat(errorReceived.get()).isTrue();
     }
 
     @Test
-    @DisplayName("onError прекращает дальнейшую эмиссию")
-    void testOnErrorStopsEmission() {
+    @DisplayName("should stop emission after onError")
+    void shouldStopEmissionAfterOnError() {
+        // Arrange
         List<String> received = new ArrayList<>();
 
+        // Act
         Observable.create((ObservableOnSubscribe<Integer>) emitter -> {
                     emitter.onNext(1);
                     emitter.onError(new RuntimeException("Test error"));
                     emitter.onNext(2);
                     emitter.onComplete();
                 })
-                .subscribe(new TestObserver<>(
-                        item -> received.add("onNext:" + item),
-                        t -> received.add("onError:" + t.getMessage()),
-                        () -> received.add("onComplete")
-                ));
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(item -> received.add("onNext:" + item))
+                        .onErrorAction(t -> received.add("onError:" + t.getMessage()))
+                        .onCompleteAction(() -> received.add("onComplete"))
+                        .build());
 
-        assertEquals(2, received.size());
-        assertEquals("onNext:1", received.get(0));
-        assertEquals("onError:Test error", received.get(1));
+        // Assert
+        assertThat(received)
+                .hasSize(2)
+                .containsExactly("onNext:1", "onError:Test error");
     }
 
     @Test
-    @DisplayName("onComplete прекращает дальнейшую эмиссию")
-    void testOnCompleteStopsEmission() {
+    @DisplayName("should stop emission after onComplete")
+    void shouldStopEmissionAfterOnComplete() {
+        // Arrange
         List<String> received = new ArrayList<>();
 
+        // Act
         Observable.create((ObservableOnSubscribe<Integer>) emitter -> {
                     emitter.onNext(1);
                     emitter.onComplete();
                     emitter.onNext(2);
                     emitter.onError(new RuntimeException("Test error"));
                 })
-                .subscribe(new TestObserver<>(
-                        item -> received.add("onNext:" + item),
-                        t -> received.add("onError:" + t.getMessage()),
-                        () -> received.add("onComplete")
-                ));
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(item -> received.add("onNext:" + item))
+                        .onErrorAction(t -> received.add("onError:" + t.getMessage()))
+                        .onCompleteAction(() -> received.add("onComplete"))
+                        .build());
 
-        assertEquals(2, received.size());
-        assertEquals("onNext:1", received.get(0));
-        assertEquals("onComplete", received.get(1));
-    }
-
-    @Test
-    @DisplayName("isDisposed возвращает true после dispose")
-    void testIsDisposedAfterDispose() {
-        AtomicReference<ObservableEmitter<Integer>> emitterRef = new AtomicReference<>();
-
-        Observable.<Integer>create(emitterRef::set)
-                .subscribe(new TestObserver<>(null, null, null));
-
-        assertFalse(emitterRef.get().isDisposed());
-        emitterRef.get().dispose();
-
-        assertTrue(emitterRef.get().isDisposed());
+        // Assert
+        assertThat(received)
+                .hasSize(2)
+                .containsExactly("onNext:1", "onComplete");
     }
 }

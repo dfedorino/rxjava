@@ -38,10 +38,10 @@ public final class FilterObserver<T> implements Observer<T>, Disposable {
 
     @Override
     public void onNext(T item) {
-        if (terminated.get()) {
+        if (terminated.get() || isDisposed()) {
             return;
         }
-        
+
         try {
             if (predicate.test(item)) {
                 downstream.onNext(item);

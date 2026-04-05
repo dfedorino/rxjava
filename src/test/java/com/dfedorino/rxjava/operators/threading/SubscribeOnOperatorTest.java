@@ -33,7 +33,9 @@ class SubscribeOnOperatorTest {
                     latch.countDown();
                 })
                 .subscribeOn(Schedulers.io())
-                .subscribe(new TestObserver<>(received::add, null, null));
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(received::add)
+                        .build());
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
         assertTrue(received.contains(1));
@@ -55,10 +57,9 @@ class SubscribeOnOperatorTest {
                     latch.countDown();
                 })
                 .subscribeOn(Schedulers.io())
-                .subscribe(new TestObserver<>(
-                        item -> onNextThread.set(Thread.currentThread().getName()),
-                        null, null
-                ));
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(item -> onNextThread.set(Thread.currentThread().getName()))
+                        .build());
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
         assertEquals(subscribeThread.get(), onNextThread.get(),
@@ -76,7 +77,9 @@ class SubscribeOnOperatorTest {
                     latch.countDown();
                 })
                 .subscribeOn(Schedulers.io())
-                .subscribe(new TestObserver<>(null, error::set, null));
+                .subscribe(TestObserver.<Integer>builder()
+                        .onErrorAction(error::set)
+                        .build());
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
         assertNotNull(error.get());
@@ -94,10 +97,12 @@ class SubscribeOnOperatorTest {
                     latch.countDown();
                 })
                 .subscribeOn(Schedulers.io())
-                .subscribe(new TestObserver<>(null, null, () -> {
-                    completed.set(true);
-                    latch.countDown();
-                }));
+                .subscribe(TestObserver.<Integer>builder()
+                        .onCompleteAction(() -> {
+                            completed.set(true);
+                            latch.countDown();
+                        })
+                        .build());
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
         assertTrue(completed.get());
@@ -122,10 +127,10 @@ class SubscribeOnOperatorTest {
                     doneLatch.countDown();
                 })
                 .subscribeOn(Schedulers.io())
-                .subscribe(new TestObserver<>(
-                        item -> {}, null, null,
-                        disposableRef::set
-                ));
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(item -> {})
+                        .onSubscribeAction(disposableRef::set)
+                        .build());
 
         assertTrue(subscribeLatch.await(5, TimeUnit.SECONDS));
         disposableRef.get().dispose();
@@ -144,7 +149,9 @@ class SubscribeOnOperatorTest {
 
         Observable.<Integer>create(emitter -> fail("Should not subscribe"))
                 .subscribeOn(shutdownScheduler)
-                .subscribe(new TestObserver<>(null, error::set, null));
+                .subscribe(TestObserver.<Integer>builder()
+                        .onErrorAction(error::set)
+                        .build());
 
         assertNotNull(error.get());
     }
@@ -164,10 +171,9 @@ class SubscribeOnOperatorTest {
                 })
                 .subscribeOn(Schedulers.io())
                 .subscribeOn(Schedulers.computation())
-                .subscribe(new TestObserver<>(
-                        item -> secondThread.set(Thread.currentThread().getName()),
-                        null, null
-                ));
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(item -> secondThread.set(Thread.currentThread().getName()))
+                        .build());
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
         assertTrue(firstThread.get().startsWith("rxjava-io-"),

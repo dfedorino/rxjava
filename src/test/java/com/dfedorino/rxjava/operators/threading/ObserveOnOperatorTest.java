@@ -28,19 +28,18 @@ class ObserveOnOperatorTest {
         CountDownLatch latch = new CountDownLatch(1);
 
         // Act & Assert
-        Observable.create(emitter -> {
+        Observable.<Integer>create(emitter -> {
                     sourceThread.set(Thread.currentThread().getName());
                     emitter.onNext(1);
                     emitter.onComplete();
                 })
                 .observeOn(Schedulers.computation())
-                .subscribe(new TestObserver<>(
-                        item -> {
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(item -> {
                             onNextThread.set(Thread.currentThread().getName());
                             latch.countDown();
-                        },
-                        null, null
-                ));
+                        })
+                        .build());
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
         assertNotEquals(sourceThread.get(), onNextThread.get(),
@@ -58,14 +57,12 @@ class ObserveOnOperatorTest {
         Observable.<Integer>create(emitter ->
                         emitter.onError(new RuntimeException("Test error")))
                 .observeOn(Schedulers.computation())
-                .subscribe(new TestObserver<>(
-                        null,
-                        error -> {
+                .subscribe(TestObserver.<Integer>builder()
+                        .onErrorAction(error -> {
                             errorThread.set(Thread.currentThread().getName());
                             latch.countDown();
-                        },
-                        null
-                ));
+                        })
+                        .build());
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
         assertTrue(errorThread.get().startsWith("rxjava-computation-"),
@@ -80,13 +77,12 @@ class ObserveOnOperatorTest {
 
         Observable.<Integer>create(emitter -> emitter.onComplete())
                 .observeOn(Schedulers.io())
-                .subscribe(new TestObserver<>(
-                        null, null,
-                        () -> {
+                .subscribe(TestObserver.<Integer>builder()
+                        .onCompleteAction(() -> {
                             completeThread.set(Thread.currentThread().getName());
                             latch.countDown();
-                        }
-                ));
+                        })
+                        .build());
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
         assertTrue(completeThread.get().startsWith("rxjava-io-"),
@@ -106,13 +102,12 @@ class ObserveOnOperatorTest {
                     emitter.onComplete();
                 })
                 .observeOn(Schedulers.single())
-                .subscribe(new TestObserver<>(
-                        item -> {
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(item -> {
                             received.add(item);
                             latch.countDown();
-                        },
-                        null, null
-                ));
+                        })
+                        .build());
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
         assertEquals(List.of(1, 2, 3, 4, 5), received);
@@ -127,10 +122,12 @@ class ObserveOnOperatorTest {
         Observable.<Integer>create(emitter ->
                         emitter.onError(new RuntimeException("Test error")))
                 .observeOn(Schedulers.io())
-                .subscribe(new TestObserver<>(null, t -> {
-                    error.set(t);
-                    latch.countDown();
-                }, null));
+                .subscribe(TestObserver.<Integer>builder()
+                        .onErrorAction(t -> {
+                            error.set(t);
+                            latch.countDown();
+                        })
+                        .build());
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
         assertNotNull(error.get());
@@ -145,10 +142,12 @@ class ObserveOnOperatorTest {
 
         Observable.<Integer>create(emitter -> emitter.onComplete())
                 .observeOn(Schedulers.io())
-                .subscribe(new TestObserver<>(null, null, () -> {
-                    completed.set(true);
-                    latch.countDown();
-                }));
+                .subscribe(TestObserver.<Integer>builder()
+                        .onCompleteAction(() -> {
+                            completed.set(true);
+                            latch.countDown();
+                        })
+                        .build());
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
         assertTrue(completed.get());
@@ -168,15 +167,14 @@ class ObserveOnOperatorTest {
                     emitter.onComplete();
                 })
                 .observeOn(Schedulers.io())
-                .subscribe(new TestObserver<>(
-                        item -> {
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(item -> {
                             received.add(item);
                             disposableRef.get().dispose();
                             disposeLatch.countDown();
-                        },
-                        null, null,
-                        disposableRef::set
-                ));
+                        })
+                        .onSubscribeAction(disposableRef::set)
+                        .build());
         assertTrue(disposeLatch.await(5, TimeUnit.SECONDS));
         Thread.sleep(200);
 
@@ -189,19 +187,18 @@ class ObserveOnOperatorTest {
         AtomicReference<String> firstObserveOnThread = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
 
-        Observable.create(emitter -> {
+        Observable.<Integer>create(emitter -> {
                     emitter.onNext(1);
                     emitter.onComplete();
                 })
                 .observeOn(Schedulers.io())
                 .observeOn(Schedulers.computation())
-                .subscribe(new TestObserver<>(
-                        item -> {
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(item -> {
                             firstObserveOnThread.set(Thread.currentThread().getName());
                             latch.countDown();
-                        },
-                        null, null
-                ));
+                        })
+                        .build());
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
         assertTrue(firstObserveOnThread.get().startsWith("rxjava-computation-"),
@@ -215,20 +212,19 @@ class ObserveOnOperatorTest {
         AtomicReference<String> onNextThread = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
 
-        Observable.create(emitter -> {
+        Observable.<Integer>create(emitter -> {
                     subscribeThread.set(Thread.currentThread().getName());
                     emitter.onNext(1);
                     emitter.onComplete();
                 })
                 .subscribeOn(Schedulers.io())
                 .observeOn(Schedulers.computation())
-                .subscribe(new TestObserver<>(
-                        item -> {
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(item -> {
                             onNextThread.set(Thread.currentThread().getName());
                             latch.countDown();
-                        },
-                        null, null
-                ));
+                        })
+                        .build());
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
         assertNotEquals(subscribeThread.get(), onNextThread.get(),
@@ -251,13 +247,12 @@ class ObserveOnOperatorTest {
                     mapThread.set(Thread.currentThread().getName());
                     return x * 2;
                 })
-                .subscribe(new TestObserver<>(
-                        item -> {
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(item -> {
                             received.add(item);
                             latch.countDown();
-                        },
-                        null, null
-                ));
+                        })
+                        .build());
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
         assertEquals(List.of(10), received);
@@ -279,7 +274,9 @@ class ObserveOnOperatorTest {
                     latch.countDown();
                 })
                 .observeOn(shutdownScheduler)
-                .subscribe(new TestObserver<>(null, error::set, null));
+                .subscribe(TestObserver.<Integer>builder()
+                        .onErrorAction(error::set)
+                        .build());
 
         assertDoesNotThrow(() -> {
             try {
@@ -299,13 +296,13 @@ class ObserveOnOperatorTest {
 
         Observable.<Integer>create(emitter -> emitter.onComplete())
                 .observeOn(Schedulers.io())
-                .subscribe(new TestObserver<>(
-                        received::add, null,
-                        () -> {
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(received::add)
+                        .onCompleteAction(() -> {
                             completed.set(true);
                             latch.countDown();
-                        }
-                ));
+                        })
+                        .build());
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
         assertTrue(received.isEmpty());
