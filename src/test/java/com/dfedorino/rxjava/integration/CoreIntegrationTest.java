@@ -43,7 +43,7 @@ class CoreIntegrationTest {
                         e.onComplete();
                     });
                 })
-                .subscribeOn(Schedulers.io())
+                .observeOn(Schedulers.io())
                 .map(i -> "Value-" + i)
                 .filter(s -> !s.contains("Value-2"))
                 .subscribe(new Observer<>() {
