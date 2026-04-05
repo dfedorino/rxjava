@@ -1,6 +1,7 @@
 package com.dfedorino.rxjava.core;
 
 import com.dfedorino.rxjava.operators.predicate.FilterObservable;
+import com.dfedorino.rxjava.operators.threading.ObserveOnObservable;
 import com.dfedorino.rxjava.operators.threading.SubscribeOnObservable;
 import com.dfedorino.rxjava.operators.transform.FlatMapObservable;
 import com.dfedorino.rxjava.operators.transform.MapObservable;
@@ -80,5 +81,15 @@ public abstract class Observable<T> {
      */
     public Observable<T> subscribeOn(Scheduler scheduler) {
         return new SubscribeOnObservable<>(this, scheduler);
+    }
+
+    /**
+     * Переключает обработку всех downstream событий (onNext/onError/onComplete) на указанный Scheduler.
+     *
+     * @param scheduler Scheduler для обработки событий
+     * @return новый Observable
+     */
+    public Observable<T> observeOn(Scheduler scheduler) {
+        return new ObserveOnObservable<>(this, scheduler);
     }
 }
