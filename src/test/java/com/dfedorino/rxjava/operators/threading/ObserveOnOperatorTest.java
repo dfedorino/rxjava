@@ -1,11 +1,12 @@
 package com.dfedorino.rxjava.operators.threading;
 
 import com.dfedorino.rxjava.core.Observable;
-import com.dfedorino.rxjava.util.TestObserver;
+import com.dfedorino.rxjava.core.ObservableEmitter;
 import com.dfedorino.rxjava.scheduler.Scheduler;
 import com.dfedorino.rxjava.scheduler.Schedulers;
-import org.junit.jupiter.api.Test;
+import com.dfedorino.rxjava.util.TestObserver;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -20,14 +21,12 @@ import static org.junit.jupiter.api.Assertions.*;
 class ObserveOnOperatorTest {
 
     @Test
-    @DisplayName("observeOn переключает onNext на указанный Scheduler")
+    @DisplayName("переключает onNext на указанный Scheduler")
     void testObserveOnSwitchesOnNextThread() throws InterruptedException {
-        // Arrange
         AtomicReference<String> sourceThread = new AtomicReference<>();
         AtomicReference<String> onNextThread = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
 
-        // Act & Assert
         Observable.<Integer>create(emitter -> {
                     sourceThread.set(Thread.currentThread().getName());
                     emitter.onNext(1);
@@ -40,16 +39,14 @@ class ObserveOnOperatorTest {
                             latch.countDown();
                         })
                         .build());
-        assertTrue(latch.await(5, TimeUnit.SECONDS));
 
-        assertNotEquals(sourceThread.get(), onNextThread.get(),
-                "onNext should be called in a different thread than source");
-        assertTrue(onNextThread.get().startsWith("rxjava-computation-"),
-                "Expected computation thread, but was: " + onNextThread.get());
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+        assertNotEquals(sourceThread.get(), onNextThread.get());
+        assertTrue(onNextThread.get().startsWith("rxjava-computation-"));
     }
 
     @Test
-    @DisplayName("observeOn переключает onError на указанный Scheduler")
+    @DisplayName("переключает onError на указанный Scheduler")
     void testObserveOnSwitchesErrorThread() throws InterruptedException {
         AtomicReference<String> errorThread = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
@@ -63,19 +60,18 @@ class ObserveOnOperatorTest {
                             latch.countDown();
                         })
                         .build());
-        assertTrue(latch.await(5, TimeUnit.SECONDS));
 
-        assertTrue(errorThread.get().startsWith("rxjava-computation-"),
-                "Expected computation thread for error, but was: " + errorThread.get());
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+        assertTrue(errorThread.get().startsWith("rxjava-computation-"));
     }
 
     @Test
-    @DisplayName("observeOn переключает onComplete на указанный Scheduler")
+    @DisplayName("переключает onComplete на указанный Scheduler")
     void testObserveOnSwitchesCompleteThread() throws InterruptedException {
         AtomicReference<String> completeThread = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
 
-        Observable.<Integer>create(emitter -> emitter.onComplete())
+        Observable.<Integer>create(ObservableEmitter::onComplete)
                 .observeOn(Schedulers.io())
                 .subscribe(TestObserver.<Integer>builder()
                         .onCompleteAction(() -> {
@@ -83,22 +79,23 @@ class ObserveOnOperatorTest {
                             latch.countDown();
                         })
                         .build());
-        assertTrue(latch.await(5, TimeUnit.SECONDS));
 
-        assertTrue(completeThread.get().startsWith("rxjava-io-"),
-                "Expected io thread for complete, but was: " + completeThread.get());
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+        assertTrue(completeThread.get().startsWith("rxjava-io-"));
     }
 
     @Test
-    @DisplayName("observeOn сохраняет порядок элементов")
-    void testObserveOnPreservesElementOrder() throws InterruptedException {
+    @DisplayName("сохраняет порядок элементов")
+    void testObserveOnPreservesOrder() throws InterruptedException {
         List<Integer> received = Collections.synchronizedList(new ArrayList<>());
         CountDownLatch latch = new CountDownLatch(5);
 
         Observable.<Integer>create(emitter -> {
-                    for (int i = 1; i <= 5; i++) {
-                        emitter.onNext(i);
-                    }
+                    emitter.onNext(1);
+                    emitter.onNext(2);
+                    emitter.onNext(3);
+                    emitter.onNext(4);
+                    emitter.onNext(5);
                     emitter.onComplete();
                 })
                 .observeOn(Schedulers.single())
@@ -108,13 +105,13 @@ class ObserveOnOperatorTest {
                             latch.countDown();
                         })
                         .build());
-        assertTrue(latch.await(5, TimeUnit.SECONDS));
 
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
         assertEquals(List.of(1, 2, 3, 4, 5), received);
     }
 
     @Test
-    @DisplayName("observeOn передаёт ошибку")
+    @DisplayName("пробрасывает ошибку")
     void testObserveOnPropagatesError() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<Throwable> error = new AtomicReference<>();
@@ -128,19 +125,18 @@ class ObserveOnOperatorTest {
                             latch.countDown();
                         })
                         .build());
-        assertTrue(latch.await(5, TimeUnit.SECONDS));
 
-        assertNotNull(error.get());
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
         assertEquals("Test error", error.get().getMessage());
     }
 
     @Test
-    @DisplayName("observeOn передаёт onComplete")
+    @DisplayName("пропагирует onComplete")
     void testObserveOnPropagatesComplete() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
-        AtomicBoolean completed = new AtomicBoolean(false);
+        AtomicBoolean completed = new AtomicBoolean();
 
-        Observable.<Integer>create(emitter -> emitter.onComplete())
+        Observable.<Integer>create(ObservableEmitter::onComplete)
                 .observeOn(Schedulers.io())
                 .subscribe(TestObserver.<Integer>builder()
                         .onCompleteAction(() -> {
@@ -148,13 +144,13 @@ class ObserveOnOperatorTest {
                             latch.countDown();
                         })
                         .build());
-        assertTrue(latch.await(5, TimeUnit.SECONDS));
 
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
         assertTrue(completed.get());
     }
 
     @Test
-    @DisplayName("observeOn корректно обрабатывает dispose")
+    @DisplayName("корректно обрабатывает dispose")
     void testObserveOnHandlesDispose() throws InterruptedException {
         CountDownLatch disposeLatch = new CountDownLatch(1);
         AtomicReference<com.dfedorino.rxjava.core.Disposable> disposableRef = new AtomicReference<>();
@@ -175,34 +171,31 @@ class ObserveOnOperatorTest {
                         })
                         .onSubscribeAction(disposableRef::set)
                         .build());
+
         assertTrue(disposeLatch.await(5, TimeUnit.SECONDS));
         Thread.sleep(200);
-
-        assertEquals(List.of(1), received, "Should only receive first item after dispose");
+        assertEquals(List.of(1), received);
     }
 
     @Test
-    @DisplayName("observeOn можно вызывать многократно для переключения между Scheduler")
+    @DisplayName("можно вызывать многократно")
     void testObserveOnMultipleCalls() throws InterruptedException {
-        AtomicReference<String> firstObserveOnThread = new AtomicReference<>();
+        AtomicReference<String> thread = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
 
         Observable.<Integer>create(emitter -> {
                     emitter.onNext(1);
                     emitter.onComplete();
-                })
-                .observeOn(Schedulers.io())
-                .observeOn(Schedulers.computation())
+                }).observeOn(Schedulers.io()).observeOn(Schedulers.computation())
                 .subscribe(TestObserver.<Integer>builder()
                         .onNextAction(item -> {
-                            firstObserveOnThread.set(Thread.currentThread().getName());
+                            thread.set(Thread.currentThread().getName());
                             latch.countDown();
                         })
                         .build());
-        assertTrue(latch.await(5, TimeUnit.SECONDS));
 
-        assertTrue(firstObserveOnThread.get().startsWith("rxjava-computation-"),
-                "Expected computation thread (last observeOn), but was: " + firstObserveOnThread.get());
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+        assertTrue(thread.get().startsWith("rxjava-computation-"));
     }
 
     @Test
@@ -216,19 +209,16 @@ class ObserveOnOperatorTest {
                     subscribeThread.set(Thread.currentThread().getName());
                     emitter.onNext(1);
                     emitter.onComplete();
-                })
-                .subscribeOn(Schedulers.io())
-                .observeOn(Schedulers.computation())
+                }).subscribeOn(Schedulers.io()).observeOn(Schedulers.computation())
                 .subscribe(TestObserver.<Integer>builder()
                         .onNextAction(item -> {
                             onNextThread.set(Thread.currentThread().getName());
                             latch.countDown();
                         })
                         .build());
-        assertTrue(latch.await(5, TimeUnit.SECONDS));
 
-        assertNotEquals(subscribeThread.get(), onNextThread.get(),
-                "Subscribe and onNext should be in different threads. Subscribe: " + subscribeThread.get() + ", onNext: " + onNextThread.get());
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+        assertNotEquals(subscribeThread.get(), onNextThread.get());
     }
 
     @Test
@@ -241,8 +231,7 @@ class ObserveOnOperatorTest {
         Observable.<Integer>create(emitter -> {
                     emitter.onNext(5);
                     emitter.onComplete();
-                })
-                .observeOn(Schedulers.computation())
+                }).observeOn(Schedulers.computation())
                 .map(x -> {
                     mapThread.set(Thread.currentThread().getName());
                     return x * 2;
@@ -253,30 +242,25 @@ class ObserveOnOperatorTest {
                             latch.countDown();
                         })
                         .build());
-        assertTrue(latch.await(5, TimeUnit.SECONDS));
 
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
         assertEquals(List.of(10), received);
-        assertTrue(mapThread.get().startsWith("rxjava-computation-"),
-                "Map should execute in computation thread, but was: " + mapThread.get());
+        assertTrue(mapThread.get().startsWith("rxjava-computation-"));
     }
 
     @Test
-    @DisplayName("observeOn передаёт ошибку Scheduler в onError")
+    @DisplayName("передаёт ошибку Scheduler в onError")
     void testObserveOnHandlesSchedulerError() {
         Scheduler shutdownScheduler = new com.dfedorino.rxjava.scheduler.IOThreadScheduler();
         shutdownScheduler.shutdown();
-
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<Throwable> error = new AtomicReference<>();
 
         Observable.<Integer>create(emitter -> {
                     emitter.onNext(1);
                     latch.countDown();
-                })
-                .observeOn(shutdownScheduler)
-                .subscribe(TestObserver.<Integer>builder()
-                        .onErrorAction(error::set)
-                        .build());
+                }).observeOn(shutdownScheduler)
+                .subscribe(TestObserver.<Integer>builder().onErrorAction(error::set).build());
 
         assertDoesNotThrow(() -> {
             try {
@@ -288,13 +272,13 @@ class ObserveOnOperatorTest {
     }
 
     @Test
-    @DisplayName("observeOn с пустым потоком")
+    @DisplayName("обрабатывает пустой поток")
     void testObserveOnEmptyStream() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
-        AtomicBoolean completed = new AtomicBoolean(false);
+        AtomicBoolean completed = new AtomicBoolean();
         List<Integer> received = Collections.synchronizedList(new ArrayList<>());
 
-        Observable.<Integer>create(emitter -> emitter.onComplete())
+        Observable.<Integer>create(ObservableEmitter::onComplete)
                 .observeOn(Schedulers.io())
                 .subscribe(TestObserver.<Integer>builder()
                         .onNextAction(received::add)
@@ -303,19 +287,15 @@ class ObserveOnOperatorTest {
                             latch.countDown();
                         })
                         .build());
-        assertTrue(latch.await(5, TimeUnit.SECONDS));
 
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
         assertTrue(received.isEmpty());
         assertTrue(completed.get());
     }
 
-    // ============================================================
-    // RxJava Reference Comparison Tests
-    // ============================================================
-
     @Test
     @DisplayName("[RxJava] observeOn переключает onNext на указанный Scheduler")
-    void testObserveOnThread_RxJavaReference() throws InterruptedException {
+    void testObserveOnThread_RxJava() throws InterruptedException {
         AtomicReference<String> sourceThread = new AtomicReference<>();
         AtomicReference<String> onNextThread = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
@@ -324,46 +304,41 @@ class ObserveOnOperatorTest {
                     sourceThread.set(Thread.currentThread().getName());
                     emitter.onNext(1);
                     emitter.onComplete();
-                })
-                .observeOn(io.reactivex.rxjava3.schedulers.Schedulers.computation())
-                .subscribe(
-                        item -> {
+                }).observeOn(io.reactivex.rxjava3.schedulers.Schedulers.computation())
+                .subscribe(item -> {
                             onNextThread.set(Thread.currentThread().getName());
                             latch.countDown();
                         },
-                        error -> {},
-                        () -> {}
-                );
-        assertTrue(latch.await(5, TimeUnit.SECONDS));
+                        error -> {
+                        }, () -> {
+                        });
 
-        assertNotEquals(sourceThread.get(), onNextThread.get(),
-                "onNext should be called in a different thread than source");
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+        assertNotEquals(sourceThread.get(), onNextThread.get());
     }
 
     @Test
-    @DisplayName("[RxJava] observeOn сохраняет порядок элементов")
-    void testObserveOnOrder_RxJavaReference() throws InterruptedException {
+    @DisplayName("[RxJava] observeOn сохраняет порядок")
+    void testObserveOnOrder_RxJava() throws InterruptedException {
         List<Integer> received = Collections.synchronizedList(new ArrayList<>());
         CountDownLatch latch = new CountDownLatch(5);
 
         io.reactivex.rxjava3.core.Observable.range(1, 5)
                 .observeOn(io.reactivex.rxjava3.schedulers.Schedulers.single())
-                .subscribe(
-                        item -> {
-                            received.add(item);
-                            latch.countDown();
-                        },
-                        error -> {},
-                        () -> {}
-                );
-        assertTrue(latch.await(5, TimeUnit.SECONDS));
+                .subscribe(item -> {
+                    received.add(item);
+                    latch.countDown();
+                }, error -> {
+                }, () -> {
+                });
 
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
         assertEquals(List.of(1, 2, 3, 4, 5), received);
     }
 
     @Test
     @DisplayName("[RxJava] цепочка subscribeOn + observeOn")
-    void testSubscribeOnPlusObserveOn_RxJavaReference() throws InterruptedException {
+    void testSubscribeOnPlusObserveOn_RxJava() throws InterruptedException {
         AtomicReference<String> subscribeThread = new AtomicReference<>();
         AtomicReference<String> onNextThread = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
@@ -372,26 +347,23 @@ class ObserveOnOperatorTest {
                     subscribeThread.set(Thread.currentThread().getName());
                     emitter.onNext(1);
                     emitter.onComplete();
-                })
-                .subscribeOn(io.reactivex.rxjava3.schedulers.Schedulers.io())
+                }).subscribeOn(io.reactivex.rxjava3.schedulers.Schedulers.io())
                 .observeOn(io.reactivex.rxjava3.schedulers.Schedulers.computation())
-                .subscribe(
-                        item -> {
+                .subscribe(item -> {
                             onNextThread.set(Thread.currentThread().getName());
                             latch.countDown();
                         },
-                        error -> {},
-                        () -> {}
-                );
-        assertTrue(latch.await(5, TimeUnit.SECONDS));
+                        error -> {
+                        }, () -> {
+                        });
 
-        assertNotEquals(subscribeThread.get(), onNextThread.get(),
-                "Subscribe and onNext should be in different threads. Subscribe: " + subscribeThread.get() + ", onNext: " + onNextThread.get());
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+        assertNotEquals(subscribeThread.get(), onNextThread.get());
     }
 
     @Test
     @DisplayName("[RxJava] observeOn + map выполняется в Scheduler")
-    void testObserveOnPlusMap_RxJavaReference() throws InterruptedException {
+    void testObserveOnPlusMap_RxJava() throws InterruptedException {
         AtomicReference<String> mapThread = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
         List<Integer> received = Collections.synchronizedList(new ArrayList<>());
@@ -402,14 +374,10 @@ class ObserveOnOperatorTest {
                     mapThread.set(Thread.currentThread().getName());
                     return x * 2;
                 })
-                .subscribe(
-                        received::add,
-                        error -> {},
-                        () -> latch.countDown()
-                );
-        assertTrue(latch.await(5, TimeUnit.SECONDS));
+                .subscribe(received::add, error -> {
+                }, () -> latch.countDown());
 
-        assertTrue(mapThread.get().contains("RxComputation") || mapThread.get().contains("computation"),
-                "Map should execute in computation thread, but was: " + mapThread.get());
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+        assertTrue(mapThread.get().contains("RxComputation") || mapThread.get().contains("computation"));
     }
 }

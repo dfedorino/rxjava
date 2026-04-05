@@ -13,114 +13,65 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@DisplayName("ComputationScheduler Tests")
 class ComputationSchedulerTest {
 
     private ComputationScheduler scheduler;
 
     @BeforeEach
-    void setUp() {
-        scheduler = new ComputationScheduler();
-    }
+    void setUp() { scheduler = new ComputationScheduler(); }
 
     @AfterEach
-    void tearDown() {
-        scheduler.shutdown();
-    }
+    void tearDown() { scheduler.shutdown(); }
 
     @Test
-    @DisplayName("Should execute task in computation thread with correct naming")
+    @DisplayName("выполняет задачу в потоке вычислений")
     void shouldExecuteTaskInComputationThread() throws InterruptedException {
-        // Arrange
         CountDownLatch latch = new CountDownLatch(1);
-        AtomicBoolean executed = new AtomicBoolean(false);
-        AtomicBoolean correctThreadName = new AtomicBoolean(false);
+        AtomicBoolean executed = new AtomicBoolean();
+        AtomicBoolean correctThread = new AtomicBoolean();
 
-        // Act
         scheduler.execute(() -> {
             executed.set(true);
-            correctThreadName.set(Thread.currentThread().getName().startsWith("rxjava-computation-"));
+            correctThread.set(Thread.currentThread().getName().startsWith("rxjava-computation-"));
             latch.countDown();
         });
 
-        boolean completed = latch.await(2, TimeUnit.SECONDS);
-
-        // Assert
-        assertThat(completed)
-            .as("Task should complete within timeout")
-            .isTrue();
-        assertThat(executed.get())
-            .as("Task should be executed")
-            .isTrue();
-        assertThat(correctThreadName.get())
-            .as("Thread name should start with 'rxjava-computation-'")
-            .isTrue();
+        assertThat(latch.await(2, TimeUnit.SECONDS)).isTrue();
+        assertThat(executed.get()).isTrue();
+        assertThat(correctThread.get()).isTrue();
     }
 
     @Test
-    @DisplayName("Should throw RejectedExecutionException when shut down")
-    void shouldThrowExceptionWhenShutDown() {
-        // Arrange
+    @DisplayName("выбрасывает исключение после shutdown")
+    void shouldThrowAfterShutdown() {
         scheduler.shutdown();
-
-        // Act & Assert
         assertThatThrownBy(() -> scheduler.execute(() -> {}))
-            .isInstanceOf(RejectedExecutionException.class)
-            .hasMessageContaining("shut down");
+                .isInstanceOf(RejectedExecutionException.class)
+                .hasMessageContaining("shut down");
     }
 
     @Test
-    @DisplayName("Should limit threads to CPU count when specified")
-    void shouldLimitThreadsToCpuCount() {
-        // Arrange
-        int threadCount = 2;
-        ComputationScheduler limitedScheduler = new ComputationScheduler(threadCount);
-
-        // Act & Assert
-        assertThat(limitedScheduler.isShutdown())
-            .as("Scheduler should not be shutdown initially")
-            .isFalse();
-
-        limitedScheduler.shutdown();
-
-        assertThat(limitedScheduler.isShutdown())
-            .as("Scheduler should be shutdown after shutdown()")
-            .isTrue();
+    @DisplayName("ограничивает потоки до CPU count")
+    void shouldLimitThreads() {
+        ComputationScheduler limited = new ComputationScheduler(2);
+        assertThat(limited.isShutdown()).isFalse();
+        limited.shutdown();
+        assertThat(limited.isShutdown()).isTrue();
     }
 
     @Test
-    @DisplayName("Should handle multiple concurrent tasks")
-    void shouldHandleMultipleConcurrentTasks() throws InterruptedException {
-        // Arrange
-        int taskCount = 10;
-        CountDownLatch latch = new CountDownLatch(taskCount);
-
-        // Act
-        for (int i = 0; i < taskCount; i++) {
-            scheduler.execute(latch::countDown);
-        }
-
-        boolean completed = latch.await(3, TimeUnit.SECONDS);
-
-        // Assert
-        assertThat(completed)
-            .as("All tasks should complete within timeout")
-            .isTrue();
+    @DisplayName("обрабатывает конкурентные задачи")
+    void shouldHandleConcurrentTasks() throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(10);
+        for (int i = 0; i < 10; i++) scheduler.execute(latch::countDown);
+        assertThat(latch.await(3, TimeUnit.SECONDS)).isTrue();
     }
 
     @Test
-    @DisplayName("Should shutdown gracefully")
+    @DisplayName("корректно останавливается")
     void shouldShutdownGracefully() {
-        // Arrange & Act
-        assertThat(scheduler.isShutdown())
-            .as("Scheduler should not be shutdown initially")
-            .isFalse();
-
+        assertThat(scheduler.isShutdown()).isFalse();
         scheduler.shutdown();
-
-        // Assert
-        assertThat(scheduler.isShutdown())
-            .as("Scheduler should be shutdown after shutdown()")
-            .isTrue();
+        assertThat(scheduler.isShutdown()).isTrue();
     }
 }
