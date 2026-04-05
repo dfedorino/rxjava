@@ -17,31 +17,10 @@ class FlatMapOperatorTest {
     @Test
     @DisplayName("flatMap преобразует каждый элемент в Observable и сливает результаты")
     void testFlatMapTransformsAndMerges() {
-        // Arrange
         List<Integer> source = List.of(1, 2, 3);
         List<Integer> received = new ArrayList<>();
 
-        Observer<Integer> observer = new Observer<>() {
-            @Override
-            public void onSubscribe(Disposable d) {
-            }
-
-            @Override
-            public void onNext(Integer item) {
-                received.add(item);
-            }
-
-            @Override
-            public void onError(Throwable t) {
-            }
-
-            @Override
-            public void onComplete() {
-            }
-        };
-
-        // Act
-        Observable.create((ObservableOnSubscribe<Integer>) emitter -> {
+        Observable.<Integer>create(emitter -> {
                     source.forEach(emitter::onNext);
                     emitter.onComplete();
                 })
@@ -50,54 +29,40 @@ class FlatMapOperatorTest {
                     innerEmitter.onNext(x * 100);
                     innerEmitter.onComplete();
                 }))
-                .subscribe(observer);
+                .subscribe(new Observer<>() {
+                    @Override public void onSubscribe(Disposable d) {}
+                    @Override public void onNext(Integer item) { received.add(item); }
+                    @Override public void onError(Throwable t) {}
+                    @Override public void onComplete() {}
+                });
 
-        // Assert
         assertEquals(6, received.size());
-        assertTrue(received.contains(10));   // 1 * 10
-        assertTrue(received.contains(100));  // 1 * 100
-        assertTrue(received.contains(20));   // 2 * 10
-        assertTrue(received.contains(200));  // 2 * 100
-        assertTrue(received.contains(30));   // 3 * 10
-        assertTrue(received.contains(300));  // 3 * 100
+        assertTrue(received.contains(10));
+        assertTrue(received.contains(100));
+        assertTrue(received.contains(20));
+        assertTrue(received.contains(200));
+        assertTrue(received.contains(30));
+        assertTrue(received.contains(300));
     }
 
     @Test
     @DisplayName("flatMap работает с пустым потоком")
     void testFlatMapWithEmptyStream() {
-        // Arrange
         List<Integer> received = new ArrayList<>();
         AtomicBoolean completed = new AtomicBoolean(false);
 
-        Observer<Integer> observer = new Observer<>() {
-            @Override
-            public void onSubscribe(Disposable d) {
-            }
-
-            @Override
-            public void onNext(Integer item) {
-                received.add(item);
-            }
-
-            @Override
-            public void onError(Throwable t) {
-            }
-
-            @Override
-            public void onComplete() {
-                completed.set(true);
-            }
-        };
-
-        // Act
         Observable.<Integer>create(ObservableEmitter::onComplete)
                 .flatMap(x -> Observable.<Integer>create(emitter -> {
                     emitter.onNext(x * 2);
                     emitter.onComplete();
                 }))
-                .subscribe(observer);
+                .subscribe(new Observer<>() {
+                    @Override public void onSubscribe(Disposable d) {}
+                    @Override public void onNext(Integer item) { received.add(item); }
+                    @Override public void onError(Throwable t) {}
+                    @Override public void onComplete() { completed.set(true); }
+                });
 
-        // Assert
         assertTrue(received.isEmpty());
         assertTrue(completed.get());
     }
@@ -105,34 +70,11 @@ class FlatMapOperatorTest {
     @Test
     @DisplayName("flatMap передаёт ошибку из источника через onError")
     void testFlatMapPropagatesSourceError() {
-        // Arrange
         AtomicBoolean errorReceived = new AtomicBoolean(false);
         AtomicReference<Throwable> capturedError = new AtomicReference<>();
-
-        Observer<Integer> observer = new Observer<>() {
-            @Override
-            public void onSubscribe(Disposable d) {
-            }
-
-            @Override
-            public void onNext(Integer item) {
-            }
-
-            @Override
-            public void onError(Throwable t) {
-                errorReceived.set(true);
-                capturedError.set(t);
-            }
-
-            @Override
-            public void onComplete() {
-            }
-        };
-
         RuntimeException testError = new RuntimeException("Source error");
 
-        // Act
-        Observable.create((ObservableOnSubscribe<Integer>) emitter -> {
+        Observable.<Integer>create(emitter -> {
                     emitter.onNext(1);
                     emitter.onError(testError);
                 })
@@ -140,9 +82,16 @@ class FlatMapOperatorTest {
                     emitter.onNext(x * 2);
                     emitter.onComplete();
                 }))
-                .subscribe(observer);
+                .subscribe(new Observer<>() {
+                    @Override public void onSubscribe(Disposable d) {}
+                    @Override public void onNext(Integer item) {}
+                    @Override public void onError(Throwable t) {
+                        errorReceived.set(true);
+                        capturedError.set(t);
+                    }
+                    @Override public void onComplete() {}
+                });
 
-        // Assert
         assertTrue(errorReceived.get());
         assertEquals(testError, capturedError.get());
     }
@@ -150,36 +99,13 @@ class FlatMapOperatorTest {
     @Test
     @DisplayName("flatMap передаёт ошибку из внутреннего Observable через onError")
     void testFlatMapPropagatesInnerError() {
-        // Arrange
         AtomicBoolean errorReceived = new AtomicBoolean(false);
         AtomicReference<Throwable> capturedError = new AtomicReference<>();
-
-        Observer<Integer> observer = new Observer<>() {
-            @Override
-            public void onSubscribe(Disposable d) {
-            }
-
-            @Override
-            public void onNext(Integer item) {
-            }
-
-            @Override
-            public void onError(Throwable t) {
-                errorReceived.set(true);
-                capturedError.set(t);
-            }
-
-            @Override
-            public void onComplete() {
-            }
-        };
-
         RuntimeException innerError = new RuntimeException("Inner error");
 
-        // Act
-        Observable.create((ObservableOnSubscribe<Integer>) emitter -> {
+        Observable.<Integer>create(emitter -> {
                     emitter.onNext(1);
-                    emitter.onNext(2); // Этот элемент вызовет ошибку во внутреннем Observable
+                    emitter.onNext(2);
                     emitter.onComplete();
                 })
                 .flatMap(x -> {
@@ -191,9 +117,16 @@ class FlatMapOperatorTest {
                         emitter.onComplete();
                     });
                 })
-                .subscribe(observer);
+                .subscribe(new Observer<>() {
+                    @Override public void onSubscribe(Disposable d) {}
+                    @Override public void onNext(Integer item) {}
+                    @Override public void onError(Throwable t) {
+                        errorReceived.set(true);
+                        capturedError.set(t);
+                    }
+                    @Override public void onComplete() {}
+                });
 
-        // Assert
         assertTrue(errorReceived.get());
         assertEquals(innerError, capturedError.get());
     }
@@ -201,34 +134,12 @@ class FlatMapOperatorTest {
     @Test
     @DisplayName("flatMap передаёт исключение из mapper в onError")
     void testFlatMapExceptionInMapper() {
-        // Arrange
         AtomicBoolean errorReceived = new AtomicBoolean(false);
         AtomicReference<Throwable> capturedError = new AtomicReference<>();
 
-        Observer<Integer> observer = new Observer<>() {
-            @Override
-            public void onSubscribe(Disposable d) {
-            }
-
-            @Override
-            public void onNext(Integer item) {
-            }
-
-            @Override
-            public void onError(Throwable t) {
-                errorReceived.set(true);
-                capturedError.set(t);
-            }
-
-            @Override
-            public void onComplete() {
-            }
-        };
-
-        // Act
-        Observable.create((ObservableOnSubscribe<Integer>) emitter -> {
+        Observable.<Integer>create(emitter -> {
                     emitter.onNext(1);
-                    emitter.onNext(2); // Mapper выбросит исключение
+                    emitter.onNext(2);
                     emitter.onNext(3);
                     emitter.onComplete();
                 })
@@ -241,9 +152,16 @@ class FlatMapOperatorTest {
                         emitter.onComplete();
                     });
                 })
-                .subscribe(observer);
+                .subscribe(new Observer<>() {
+                    @Override public void onSubscribe(Disposable d) {}
+                    @Override public void onNext(Integer item) {}
+                    @Override public void onError(Throwable t) {
+                        errorReceived.set(true);
+                        capturedError.set(t);
+                    }
+                    @Override public void onComplete() {}
+                });
 
-        // Assert
         assertTrue(errorReceived.get());
         assertInstanceOf(IllegalArgumentException.class, capturedError.get());
         assertEquals("Mapper error!", capturedError.get().getMessage());
@@ -252,35 +170,11 @@ class FlatMapOperatorTest {
     @Test
     @DisplayName("flatMap корректно работает с отпиской (dispose)")
     void testFlatMapWithDispose() {
-        // Arrange
         AtomicInteger emitCount = new AtomicInteger(0);
         AtomicReference<Disposable> disposableRef = new AtomicReference<>();
         AtomicBoolean disposed = new AtomicBoolean(false);
 
-        Observer<Integer> observer = new Observer<>() {
-            @Override
-            public void onSubscribe(Disposable d) {
-                disposableRef.set(d);
-            }
-
-            @Override
-            public void onNext(Integer item) {
-                if (!disposed.get()) {
-                    emitCount.incrementAndGet();
-                }
-            }
-
-            @Override
-            public void onError(Throwable t) {
-            }
-
-            @Override
-            public void onComplete() {
-            }
-        };
-
-        // Act
-        Observable.create((ObservableOnSubscribe<Integer>) emitter -> {
+        Observable.<Integer>create(emitter -> {
                     emitter.onNext(1);
                     emitter.onNext(2);
                     emitter.onComplete();
@@ -291,43 +185,28 @@ class FlatMapOperatorTest {
                     }
                     innerEmitter.onComplete();
                 }))
-                .subscribe(observer);
+                .subscribe(new Observer<>() {
+                    @Override public void onSubscribe(Disposable d) { disposableRef.set(d); }
+                    @Override public void onNext(Integer item) {
+                        if (!disposed.get()) emitCount.incrementAndGet();
+                    }
+                    @Override public void onError(Throwable t) {}
+                    @Override public void onComplete() {}
+                });
 
         assertNotNull(disposableRef.get());
         disposed.set(true);
         disposableRef.get().dispose();
 
-        // Assert
         assertTrue(emitCount.get() >= 0);
     }
 
     @Test
     @DisplayName("flatMap позволяет строить цепочки операторов")
     void testFlatMapChaining() {
-        // Arrange
         List<Integer> received = new ArrayList<>();
 
-        Observer<Integer> observer = new Observer<>() {
-            @Override
-            public void onSubscribe(Disposable d) {
-            }
-
-            @Override
-            public void onNext(Integer item) {
-                received.add(item);
-            }
-
-            @Override
-            public void onError(Throwable t) {
-            }
-
-            @Override
-            public void onComplete() {
-            }
-        };
-
-        // Act
-        Observable.create((ObservableOnSubscribe<Integer>) emitter -> {
+        Observable.<Integer>create(emitter -> {
                     emitter.onNext(1);
                     emitter.onNext(2);
                     emitter.onComplete();
@@ -337,41 +216,24 @@ class FlatMapOperatorTest {
                     innerEmitter.onComplete();
                 }))
                 .map(x -> x + 10)
-                .subscribe(observer);
+                .subscribe(new Observer<>() {
+                    @Override public void onSubscribe(Disposable d) {}
+                    @Override public void onNext(Integer item) { received.add(item); }
+                    @Override public void onError(Throwable t) {}
+                    @Override public void onComplete() {}
+                });
 
-        // Assert
         assertEquals(2, received.size());
-        assertTrue(received.contains(12)); // (1 * 2) + 10
-        assertTrue(received.contains(14)); // (2 * 2) + 10
+        assertTrue(received.contains(12));
+        assertTrue(received.contains(14));
     }
 
     @Test
     @DisplayName("flatMap с filter: комбинация операторов")
     void testFlatMapWithFilter() {
-        // Arrange
         List<Integer> received = new ArrayList<>();
 
-        Observer<Integer> observer = new Observer<>() {
-            @Override
-            public void onSubscribe(Disposable d) {
-            }
-
-            @Override
-            public void onNext(Integer item) {
-                received.add(item);
-            }
-
-            @Override
-            public void onError(Throwable t) {
-            }
-
-            @Override
-            public void onComplete() {
-            }
-        };
-
-        // Act
-        Observable.create((ObservableOnSubscribe<Integer>) emitter -> {
+        Observable.<Integer>create(emitter -> {
                     emitter.onNext(1);
                     emitter.onNext(2);
                     emitter.onNext(3);
@@ -383,9 +245,13 @@ class FlatMapOperatorTest {
                     innerEmitter.onComplete();
                 }))
                 .filter(x -> x > 5)
-                .subscribe(observer);
+                .subscribe(new Observer<>() {
+                    @Override public void onSubscribe(Disposable d) {}
+                    @Override public void onNext(Integer item) { received.add(item); }
+                    @Override public void onError(Throwable t) {}
+                    @Override public void onComplete() {}
+                });
 
-        // Assert
         assertTrue(received.size() > 0);
         for (Integer item : received) {
             assertTrue(item > 5, "All items should be > 5");
@@ -395,32 +261,10 @@ class FlatMapOperatorTest {
     @Test
     @DisplayName("flatMap: onComplete после завершения всех внутренних Observable")
     void testFlatMapOnCompleteAfterAllInnerComplete() {
-        // Arrange
         List<Integer> received = new ArrayList<>();
         AtomicBoolean completed = new AtomicBoolean(false);
 
-        Observer<Integer> observer = new Observer<>() {
-            @Override
-            public void onSubscribe(Disposable d) {
-            }
-
-            @Override
-            public void onNext(Integer item) {
-                received.add(item);
-            }
-
-            @Override
-            public void onError(Throwable t) {
-            }
-
-            @Override
-            public void onComplete() {
-                completed.set(true);
-            }
-        };
-
-        // Act
-        Observable.create((ObservableOnSubscribe<Integer>) emitter -> {
+        Observable.<Integer>create(emitter -> {
                     emitter.onNext(1);
                     emitter.onNext(2);
                     emitter.onComplete();
@@ -429,9 +273,13 @@ class FlatMapOperatorTest {
                     innerEmitter.onNext(x * 10);
                     innerEmitter.onComplete();
                 }))
-                .subscribe(observer);
+                .subscribe(new Observer<>() {
+                    @Override public void onSubscribe(Disposable d) {}
+                    @Override public void onNext(Integer item) { received.add(item); }
+                    @Override public void onError(Throwable t) {}
+                    @Override public void onComplete() { completed.set(true); }
+                });
 
-        // Assert
         assertTrue(completed.get(), "onComplete should be called");
         assertEquals(2, received.size());
         assertTrue(received.contains(10));
@@ -441,30 +289,9 @@ class FlatMapOperatorTest {
     @Test
     @DisplayName("flatMap: несколько элементов в каждом внутреннем Observable")
     void testFlatMapMultipleElementsPerInnerObservable() {
-        // Arrange
         List<Integer> received = new ArrayList<>();
 
-        Observer<Integer> observer = new Observer<>() {
-            @Override
-            public void onSubscribe(Disposable d) {
-            }
-
-            @Override
-            public void onNext(Integer item) {
-                received.add(item);
-            }
-
-            @Override
-            public void onError(Throwable t) {
-            }
-
-            @Override
-            public void onComplete() {
-            }
-        };
-
-        // Act
-        Observable.create((ObservableOnSubscribe<Integer>) emitter -> {
+        Observable.<Integer>create(emitter -> {
                     emitter.onNext(1);
                     emitter.onNext(2);
                     emitter.onComplete();
@@ -475,12 +302,14 @@ class FlatMapOperatorTest {
                     }
                     innerEmitter.onComplete();
                 }))
-                .subscribe(observer);
+                .subscribe(new Observer<>() {
+                    @Override public void onSubscribe(Disposable d) {}
+                    @Override public void onNext(Integer item) { received.add(item); }
+                    @Override public void onError(Throwable t) {}
+                    @Override public void onComplete() {}
+                });
 
-        // Assert
         assertEquals(6, received.size());
-        // From x=1: 11, 12, 13
-        // From x=2: 21, 22, 23
         assertTrue(received.contains(11));
         assertTrue(received.contains(12));
         assertTrue(received.contains(13));

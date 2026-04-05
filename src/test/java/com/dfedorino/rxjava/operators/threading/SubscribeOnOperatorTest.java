@@ -22,26 +22,20 @@ class SubscribeOnOperatorTest {
     @Test
     @DisplayName("subscribeOn выполняет подписку в указанном потоке")
     void testSubscribeOnRunsInSchedulerThread() throws InterruptedException {
-        // Arrange
         AtomicReference<String> subscribeThread = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
-
-        Observable<Integer> source = Observable.create(emitter -> {
-            subscribeThread.set(Thread.currentThread().getName());
-            emitter.onNext(1);
-            emitter.onComplete();
-            latch.countDown();
-        });
-
-        Observable<Integer> observable = source.subscribeOn(Schedulers.io());
-
         List<Integer> received = new ArrayList<>();
 
-        // Act
-        observable.subscribe(new SimpleObserver<>(received::add, null, null));
+        Observable.<Integer>create(emitter -> {
+                    subscribeThread.set(Thread.currentThread().getName());
+                    emitter.onNext(1);
+                    emitter.onComplete();
+                    latch.countDown();
+                })
+                .subscribeOn(Schedulers.io())
+                .subscribe(new SimpleObserver<>(received::add, null, null));
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
-        // Assert
         assertTrue(received.contains(1));
         assertTrue(subscribeThread.get().startsWith("rxjava-io-"),
                 "Expected thread starting with 'rxjava-io-', but was: " + subscribeThread.get());
@@ -50,31 +44,23 @@ class SubscribeOnOperatorTest {
     @Test
     @DisplayName("subscribeOn передаёт onNext в том же потоке, где источник генерирует элементы")
     void testSubscribeOnDoesNotSwitchOnNextThread() throws InterruptedException {
-        // Arrange
         AtomicReference<String> subscribeThread = new AtomicReference<>();
         AtomicReference<String> onNextThread = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
 
-        Observable<Integer> source = Observable.create(emitter -> {
-            subscribeThread.set(Thread.currentThread().getName());
-            emitter.onNext(1);
-            emitter.onComplete();
-            latch.countDown();
-        });
-
-        Observable<Integer> observable = source.subscribeOn(Schedulers.io());
-
-        // Act
-        observable.subscribe(new SimpleObserver<>(
-                item -> {
-                    onNextThread.set(Thread.currentThread().getName());
-                },
-                null,
-                null
-        ));
+        Observable.<Integer>create(emitter -> {
+                    subscribeThread.set(Thread.currentThread().getName());
+                    emitter.onNext(1);
+                    emitter.onComplete();
+                    latch.countDown();
+                })
+                .subscribeOn(Schedulers.io())
+                .subscribe(new SimpleObserver<>(
+                        item -> onNextThread.set(Thread.currentThread().getName()),
+                        null, null
+                ));
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
-        // Assert
         assertEquals(subscribeThread.get(), onNextThread.get(),
                 "onNext should be called in the same thread as subscription");
     }
@@ -82,22 +68,17 @@ class SubscribeOnOperatorTest {
     @Test
     @DisplayName("subscribeOn передаёт onError")
     void testSubscribeOnPropagatesError() throws InterruptedException {
-        // Arrange
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<Throwable> error = new AtomicReference<>();
 
-        Observable<Integer> source = Observable.create(emitter -> {
-            emitter.onError(new RuntimeException("Test error"));
-            latch.countDown();
-        });
-
-        Observable<Integer> observable = source.subscribeOn(Schedulers.io());
-
-        // Act
-        observable.subscribe(new SimpleObserver<>(null, error::set, null));
+        Observable.<Integer>create(emitter -> {
+                    emitter.onError(new RuntimeException("Test error"));
+                    latch.countDown();
+                })
+                .subscribeOn(Schedulers.io())
+                .subscribe(new SimpleObserver<>(null, error::set, null));
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
-        // Assert
         assertNotNull(error.get());
         assertEquals("Test error", error.get().getMessage());
     }
@@ -105,120 +86,91 @@ class SubscribeOnOperatorTest {
     @Test
     @DisplayName("subscribeOn передаёт onComplete")
     void testSubscribeOnPropagatesComplete() throws InterruptedException {
-        // Arrange
         CountDownLatch latch = new CountDownLatch(1);
         AtomicBoolean completed = new AtomicBoolean(false);
 
-        Observable<Integer> source = Observable.create(emitter -> {
-            emitter.onComplete();
-            latch.countDown();
-        });
-
-        Observable<Integer> observable = source.subscribeOn(Schedulers.io());
-
-        // Act
-        observable.subscribe(new SimpleObserver<>(null, null, () -> {
-            completed.set(true);
-            latch.countDown();
-        }));
+        Observable.<Integer>create(emitter -> {
+                    emitter.onComplete();
+                    latch.countDown();
+                })
+                .subscribeOn(Schedulers.io())
+                .subscribe(new SimpleObserver<>(null, null, () -> {
+                    completed.set(true);
+                    latch.countDown();
+                }));
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
-        // Assert
         assertTrue(completed.get());
     }
 
     @Test
     @DisplayName("subscribeOn обрабатывает dispose до начала генерации элементов")
     void testSubscribeOnHandlesDisposeBeforeEmission() throws InterruptedException {
-        // Arrange
         CountDownLatch subscribeLatch = new CountDownLatch(1);
         CountDownLatch doneLatch = new CountDownLatch(1);
         AtomicBoolean disposed = new AtomicBoolean(false);
-
-        Observable<Integer> source = Observable.create(emitter -> {
-            subscribeLatch.countDown();
-            // Wait to see if dispose happens before emission
-            Thread.sleep(500);
-            disposed.set(emitter.isDisposed());
-            if (!emitter.isDisposed()) {
-                emitter.onNext(1);
-            }
-            emitter.onComplete();
-            doneLatch.countDown();
-        });
-
-        Observable<Integer> observable = source.subscribeOn(Schedulers.io());
         AtomicReference<com.dfedorino.rxjava.core.Disposable> disposableRef = new AtomicReference<>();
 
-        // Act
-        observable.subscribe(new SimpleObserver<>(
-                item -> {},
-                null,
-                null,
-                disposableRef::set
-        ));
+        Observable.<Integer>create(emitter -> {
+                    subscribeLatch.countDown();
+                    Thread.sleep(500);
+                    disposed.set(emitter.isDisposed());
+                    if (!emitter.isDisposed()) {
+                        emitter.onNext(1);
+                    }
+                    emitter.onComplete();
+                    doneLatch.countDown();
+                })
+                .subscribeOn(Schedulers.io())
+                .subscribe(new SimpleObserver<>(
+                        item -> {}, null, null,
+                        disposableRef::set
+                ));
 
-        // Dispose before the source can emit
         assertTrue(subscribeLatch.await(5, TimeUnit.SECONDS));
         disposableRef.get().dispose();
         assertTrue(doneLatch.await(5, TimeUnit.SECONDS));
 
-        // Assert
         assertTrue(disposed.get(), "Source should have been disposed before emission");
     }
 
     @Test
     @DisplayName("subscribeOn передаёт ошибку Scheduler в onError")
     void testSubscribeOnHandlesSchedulerError() {
-        // Arrange
         Scheduler shutdownScheduler = new IOThreadScheduler();
         shutdownScheduler.shutdown();
 
         AtomicReference<Throwable> error = new AtomicReference<>();
 
-        Observable<Integer> source = Observable.create(emitter -> {
-            fail("Should not subscribe");
-        });
+        Observable.<Integer>create(emitter -> fail("Should not subscribe"))
+                .subscribeOn(shutdownScheduler)
+                .subscribe(new SimpleObserver<>(null, error::set, null));
 
-        Observable<Integer> observable = source.subscribeOn(shutdownScheduler);
-
-        // Act
-        observable.subscribe(new SimpleObserver<>(null, error::set, null));
-
-        // Assert
         assertNotNull(error.get());
     }
 
     @Test
     @DisplayName("subscribeOn можно вызывать многократно")
     void testSubscribeOnMultipleCalls() throws InterruptedException {
-        // Arrange
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<String> firstThread = new AtomicReference<>();
         AtomicReference<String> secondThread = new AtomicReference<>();
 
-        Observable<Integer> source = Observable.create(emitter -> {
-            firstThread.set(Thread.currentThread().getName());
-            emitter.onNext(1);
-            emitter.onComplete();
-            latch.countDown();
-        });
-
-        Observable<Integer> observable = source
+        Observable.<Integer>create(emitter -> {
+                    firstThread.set(Thread.currentThread().getName());
+                    emitter.onNext(1);
+                    emitter.onComplete();
+                    latch.countDown();
+                })
                 .subscribeOn(Schedulers.io())
-                .subscribeOn(Schedulers.computation());
-
-        // Act
-        observable.subscribe(new SimpleObserver<>(
-                item -> secondThread.set(Thread.currentThread().getName()),
-                null,
-                null
-        ));
+                .subscribeOn(Schedulers.computation())
+                .subscribe(new SimpleObserver<>(
+                        item -> secondThread.set(Thread.currentThread().getName()),
+                        null, null
+                ));
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
-        // Assert
-        // Last subscribeOn wins — subscription happens in computation's thread
-        assertTrue(firstThread.get().startsWith("rxjava-computation-"),
+        assertTrue(firstThread.get().startsWith("rxjava-io-"),
                 "Expected subscribeOn thread, but was: " + firstThread.get());
         assertEquals(firstThread.get(), secondThread.get(),
                 "onNext should be in same thread as subscription");
