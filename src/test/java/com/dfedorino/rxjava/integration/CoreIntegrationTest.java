@@ -4,11 +4,14 @@ import com.dfedorino.rxjava.core.Disposable;
 import com.dfedorino.rxjava.core.Observable;
 import com.dfedorino.rxjava.core.ObservableEmitter;
 import com.dfedorino.rxjava.core.Observer;
+import com.dfedorino.rxjava.scheduler.Schedulers;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -18,11 +21,12 @@ class CoreIntegrationTest {
 
     @Test
     @DisplayName("Базовый поток данных: Observable создаётся через create(), Observer получает элементы и завершает поток")
-    void testCompleteFlow() {
+    void testCompleteFlow() throws InterruptedException {
         // Arrange
         List<String> received = new ArrayList<>();
         AtomicReference<Disposable> disposableRef = new AtomicReference<>();
         AtomicBoolean completed = new AtomicBoolean(false);
+        CountDownLatch latch = new CountDownLatch(1);
 
         Observer<String> observer = new Observer<>() {
             @Override
@@ -43,6 +47,7 @@ class CoreIntegrationTest {
             @Override
             public void onComplete() {
                 completed.set(true);
+                latch.countDown();
             }
         };
 
@@ -54,14 +59,22 @@ class CoreIntegrationTest {
                     emitter.onNext(4);
                     emitter.onComplete();
                 })
-                .flatMap(x -> Observable.<Integer>create(e -> {
-                    e.onNext(x);
-                    e.onNext(x * 10);
-                    e.onComplete();
-                }))
+                .subscribeOn(Schedulers.computation())
+                .flatMap(x -> {
+                    System.out.println("[" + Thread.currentThread().getName() + "] called flatMap");
+                    return Observable.<Integer>create(e -> {
+                        e.onNext(x);
+                        e.onNext(x * 10);
+                        e.onComplete();
+                    });
+                })
+                .subscribeOn(Schedulers.io())
                 .map(i -> "Value-" + i)
                 .filter(s -> !s.contains("Value-2"))
                 .subscribe(observer);
+
+        // Wait for async completion
+        assertTrue(latch.await(5, TimeUnit.SECONDS), "Flow did not complete within timeout");
 
         // Assert
         assertNotNull(disposableRef.get());

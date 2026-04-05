@@ -65,12 +65,12 @@ public class ComputationScheduler implements Scheduler {
     
     private static class ComputationThreadFactory implements ThreadFactory {
         private final AtomicInteger counter = new AtomicInteger(0);
-        
+
         @Override
         public Thread newThread(Runnable r) {
             Thread thread = new Thread(r);
             thread.setName("rxjava-computation-" + counter.incrementAndGet());
-            thread.setDaemon(false);
+            thread.setDaemon(true);
             return thread;
         }
     }

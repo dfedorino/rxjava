@@ -1,8 +1,10 @@
 package com.dfedorino.rxjava.core;
 
 import com.dfedorino.rxjava.operators.predicate.FilterObservable;
+import com.dfedorino.rxjava.operators.threading.SubscribeOnObservable;
 import com.dfedorino.rxjava.operators.transform.FlatMapObservable;
 import com.dfedorino.rxjava.operators.transform.MapObservable;
+import com.dfedorino.rxjava.scheduler.Scheduler;
 
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -68,5 +70,15 @@ public abstract class Observable<T> {
      */
     public <R> Observable<R> flatMap(Function<? super T, ? extends Observable<? extends R>> mapper) {
         return new FlatMapObservable<>(this, mapper);
+    }
+
+    /**
+     * Выполняет подписку на исходный Observable в указанном Scheduler.
+     *
+     * @param scheduler Scheduler для выполнения подписки
+     * @return новый Observable
+     */
+    public Observable<T> subscribeOn(Scheduler scheduler) {
+        return new SubscribeOnObservable<>(this, scheduler);
     }
 }
