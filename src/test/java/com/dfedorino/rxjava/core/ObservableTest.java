@@ -136,4 +136,35 @@ class ObservableTest {
 
         assertThat(received).hasSize(2).containsExactly("onNext:1", "onComplete");
     }
+
+    @Test
+    @DisplayName("выбрасывает NPE при null source")
+    void shouldThrowNPEForNullOnSubscribe() {
+        AtomicReference<Throwable> capturedError = new AtomicReference<>();
+
+        Observable.<Integer>create(null)
+                .subscribe(TestObserver.<Integer>builder()
+                        .onErrorAction(capturedError::set)
+                        .build());
+
+        assertThat(capturedError.get()).isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("доставляет только первую onError")
+    void shouldDeliverOnlyFirstOnError() {
+        List<String> events = new ArrayList<>();
+
+        Observable.<Integer>create(emitter -> {
+            emitter.onError(new RuntimeException("First error"));
+            emitter.onError(new RuntimeException("Second error"));
+        }).subscribe(TestObserver.<Integer>builder()
+                .onNextAction(item -> events.add("onNext:" + item))
+                .onErrorAction(t -> events.add("onError:" + t.getMessage()))
+                .build());
+
+        assertThat(events)
+                .hasSize(1)
+                .containsExactly("onError:First error");
+    }
 }

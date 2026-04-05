@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -89,5 +90,26 @@ class SingleThreadSchedulerTest {
         assertThat(scheduler.isShutdown()).isFalse();
         scheduler.shutdown();
         assertThat(scheduler.isShutdown()).isTrue();
+    }
+
+    @Test
+    @DisplayName("все задачи выполняются на одном и том же потоке")
+    void shouldExecuteAllTasksOnSameThread() throws InterruptedException {
+        int taskCount = 5;
+        CountDownLatch latch = new CountDownLatch(taskCount);
+        Set<String> threadNames = new HashSet<>();
+
+        for (int i = 0; i < taskCount; i++) {
+            scheduler.execute(() -> {
+                threadNames.add(Thread.currentThread().getName());
+                latch.countDown();
+            });
+        }
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+        assertThat(threadNames)
+                .hasSize(1)
+                .first()
+                .isEqualTo("rxjava-single");
     }
 }

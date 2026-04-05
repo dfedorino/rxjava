@@ -101,6 +101,7 @@ public final class FlatMapObserver<T, R> implements Observer<T>, Disposable {
 
     private void tryTerminate() {
         if (isDisposed.getAndSet(true)) return;
+        disposeAllInnerSubscriptions();
         downstream.onComplete();
     }
 

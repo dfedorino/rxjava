@@ -400,4 +400,29 @@ class FilterOperatorTest {
         assertThat(capturedError.get()).isSameAs(testError);
         assertThat(completed).isFalse();
     }
+
+    @Test
+    @DisplayName("не испускает элементы после ошибки предиката")
+    void shouldNotEmitAfterPredicateError() {
+        AtomicInteger predicateCallCount = new AtomicInteger();
+        AtomicInteger emitCount = new AtomicInteger();
+
+        Observable.<Integer>create(emitter -> {
+                    for (int i = 1; i <= 10; i++) {
+                        emitter.onNext(i);
+                    }
+                    emitter.onComplete();
+                })
+                .filter(x -> {
+                    predicateCallCount.incrementAndGet();
+                    if (x == 3) throw new IllegalStateException("Error at 3");
+                    return true;
+                })
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(item -> emitCount.incrementAndGet())
+                        .build());
+
+        assertThat(emitCount).hasValue(2);
+        assertThat(predicateCallCount.get()).isEqualTo(3);
+    }
 }

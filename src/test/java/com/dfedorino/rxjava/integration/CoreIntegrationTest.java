@@ -140,4 +140,34 @@ class CoreIntegrationTest {
         assertThat(received).containsExactly(1);
         assertThat(emitterRef.get().isDisposed()).isTrue();
     }
+
+    @Test
+    @DisplayName("ошибка пробрасывается через всю цепочку операторов")
+    void shouldPropagateErrorThroughFullChain() throws InterruptedException {
+        AtomicReference<Throwable> capturedError = new AtomicReference<>();
+        CountDownLatch latch = new CountDownLatch(1);
+        RuntimeException testError = new RuntimeException("Chain error");
+
+        Observable.<Integer>create(emitter -> {
+                    emitter.onNext(1);
+                    emitter.onError(testError);
+                })
+                .subscribeOn(Schedulers.computation())
+                .map(i -> i * 2)
+                .filter(i -> i > 0)
+                .flatMap(x -> Observable.<Integer>create(e -> {
+                    e.onNext(x);
+                    e.onComplete();
+                }))
+                .observeOn(Schedulers.io())
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(item -> {})
+                        .onErrorAction(t -> {
+                            capturedError.set(t);
+                            latch.countDown(); })
+                        .build());
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+        assertThat(capturedError.get()).isSameAs(testError);
+    }
 }
