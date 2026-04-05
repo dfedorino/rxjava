@@ -1,42 +1,32 @@
 package com.dfedorino.rxjava.scheduler;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 /**
- * Шедулер с одним выделенным потоком для последовательного выполнения задач.
- * Гарантирует порядок выполнения.
- * Подходит для задач, требующих последовательной обработки.
+ * Шедулер с одним потоком для последовательного выполнения
  */
 public class SingleThreadScheduler implements Scheduler {
-    
     private final ExecutorService executorService;
     private volatile boolean isShutdown;
-    
+
     public SingleThreadScheduler() {
         this(Executors.newSingleThreadExecutor(new SingleThreadFactory()));
     }
-    
+
     SingleThreadScheduler(ExecutorService executorService) {
         this.executorService = executorService;
-        this.isShutdown = false;
     }
-    
+
     @Override
     public void execute(Runnable task) {
-        if (isShutdown) {
-            throw new RejectedExecutionException("SingleThreadScheduler is shut down, cannot accept new tasks");
-        }
+        if (isShutdown) throw new RejectedExecutionException("Scheduler shut down");
         try {
             executorService.execute(task);
         } catch (RejectedExecutionException e) {
-            throw new RejectedExecutionException("SingleThreadScheduler rejected task (no threads available)", e);
+            throw new RejectedExecutionException("Task rejected", e);
         }
     }
-    
+
     @Override
     public void shutdown() {
         if (!isShutdown) {
@@ -52,19 +42,18 @@ public class SingleThreadScheduler implements Scheduler {
             }
         }
     }
-    
+
     @Override
     public boolean isShutdown() {
         return isShutdown || executorService.isShutdown();
     }
-    
+
     private static class SingleThreadFactory implements ThreadFactory {
         @Override
         public Thread newThread(Runnable r) {
-            Thread thread = new Thread(r);
-            thread.setName("rxjava-single");
-            thread.setDaemon(false);
-            return thread;
+            Thread t = new Thread(r);
+            t.setName("rxjava-single");
+            return t;
         }
     }
 }

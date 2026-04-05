@@ -3,23 +3,11 @@ package com.dfedorino.rxjava.operators.transform;
 import com.dfedorino.rxjava.core.Disposable;
 import com.dfedorino.rxjava.core.Observer;
 
-/**
- * Внутренний Observer для подписки на каждый созданный Observable.
- * Передаёт результаты в общий FlatMapObserver.
- *
- * @param <R> тип элементов потока
- */
-public final class FlatMapInnerObserver<R> implements Observer<R>, Disposable {
-
-    private final FlatMapObserver<?, R> parent;
+public final class FlatMapInnerObserver<T> implements Observer<T>, Disposable {
+    private final FlatMapObserver<?, T> parent;
     private volatile Disposable disposable;
 
-    /**
-     * Создаёт FlatMapInnerObserver для подписки на внутренний Observable.
-     *
-     * @param parent родительский FlatMapObserver для координации
-     */
-    public FlatMapInnerObserver(FlatMapObserver<?, R> parent) {
+    public FlatMapInnerObserver(FlatMapObserver<?, T> parent) {
         this.parent = parent;
     }
 
@@ -29,34 +17,29 @@ public final class FlatMapInnerObserver<R> implements Observer<R>, Disposable {
     }
 
     @Override
-    public void onNext(R item) {
-        if (parent.isDisposed()) {
-            return;
+    public void onNext(T item) {
+        if (!parent.isDisposed()) {
+            parent.downstream.onNext(item);
         }
-        parent.downstream.onNext(item);
     }
 
     @Override
     public void onError(Throwable t) {
-        if (parent.isDisposed()) {
-            return;
+        if (!parent.isDisposed()) {
+            parent.innerError(t);
         }
-        parent.innerError(t);
     }
 
     @Override
     public void onComplete() {
-        if (parent.isDisposed()) {
-            return;
+        if (!parent.isDisposed()) {
+            parent.innerComplete();
         }
-        parent.innerComplete();
     }
 
     @Override
     public void dispose() {
-        if (disposable != null) {
-            disposable.dispose();
-        }
+        if (disposable != null) disposable.dispose();
     }
 
     @Override

@@ -6,7 +6,6 @@ import com.dfedorino.rxjava.core.Observer;
 import java.util.function.Predicate;
 
 public final class FilterObservable<T> extends Observable<T> {
-
     private final Observable<T> source;
     private final Predicate<? super T> predicate;
 
