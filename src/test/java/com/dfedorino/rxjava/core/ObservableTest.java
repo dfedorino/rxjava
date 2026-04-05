@@ -1,5 +1,6 @@
 package com.dfedorino.rxjava.core;
 
+import com.dfedorino.rxjava.util.TestObserver;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 
@@ -7,7 +8,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -24,7 +24,7 @@ class ObservableTest {
                     emitter.onNext(3);
                     emitter.onComplete();
                 })
-                .subscribe(new SimpleObserver<>(received::add));
+                .subscribe(new TestObserver<>(received::add));
 
         assertEquals(3, received.size());
         assertEquals(List.of(1, 2, 3), received);
@@ -42,7 +42,7 @@ class ObservableTest {
                     emitter.onNext(1);
                     emitter.onError(testError);
                 })
-                .subscribe(new SimpleObserver<>(
+                .subscribe(new TestObserver<>(
                         received::add,
                         t -> {
                             errorReceived.set(true);
@@ -66,7 +66,7 @@ class ObservableTest {
                     emitter.onNext(1);
                     emitter.onComplete();
                 })
-                .subscribe(new SimpleObserver<>(null, null, () -> completed.set(true)));
+                .subscribe(new TestObserver<>(null, null, () -> completed.set(true)));
 
         assertTrue(completed.get());
     }
@@ -84,7 +84,7 @@ class ObservableTest {
                     emitter.onNext(3);
                     emitter.onNext(4);
                 })
-                .subscribe(new SimpleObserver<>(
+                .subscribe(new TestObserver<>(
                         item -> {
                             received.add(item);
                             if (item == 2) {
@@ -106,7 +106,7 @@ class ObservableTest {
         Observable.<Integer>create(emitter -> {
                     throw new RuntimeException("Exception in subscribe");
                 })
-                .subscribe(new SimpleObserver<>(
+                .subscribe(new TestObserver<>(
                         null,
                         t -> {
                             System.out.println(">> Exception: " + t.getMessage());
@@ -129,7 +129,7 @@ class ObservableTest {
                     emitter.onNext(2);
                     emitter.onComplete();
                 })
-                .subscribe(new SimpleObserver<>(
+                .subscribe(new TestObserver<>(
                         item -> received.add("onNext:" + item),
                         t -> received.add("onError:" + t.getMessage()),
                         () -> received.add("onComplete")
@@ -151,7 +151,7 @@ class ObservableTest {
                     emitter.onNext(2);
                     emitter.onError(new RuntimeException("Test error"));
                 })
-                .subscribe(new SimpleObserver<>(
+                .subscribe(new TestObserver<>(
                         item -> received.add("onNext:" + item),
                         t -> received.add("onError:" + t.getMessage()),
                         () -> received.add("onComplete")
@@ -168,51 +168,11 @@ class ObservableTest {
         AtomicReference<ObservableEmitter<Integer>> emitterRef = new AtomicReference<>();
 
         Observable.<Integer>create(emitterRef::set)
-                .subscribe(new SimpleObserver<>(null, null, null));
+                .subscribe(new TestObserver<>(null, null, null));
 
         assertFalse(emitterRef.get().isDisposed());
         emitterRef.get().dispose();
 
         assertTrue(emitterRef.get().isDisposed());
-    }
-
-    // Вспомогательный класс для тестов
-    private static class SimpleObserver<T> implements Observer<T> {
-        private final Consumer<T> onNextAction;
-        private final Consumer<Throwable> onErrorAction;
-        private final Runnable onCompleteAction;
-
-        SimpleObserver(Consumer<T> onNextAction) {
-            this(onNextAction,
-                    t -> System.err.println(">> exception: " + t.getMessage()),
-                    () -> System.out.println(">> onComplete is called")
-            );
-        }
-
-        SimpleObserver(Consumer<T> onNextAction, Consumer<Throwable> onErrorAction, Runnable onCompleteAction) {
-            this.onNextAction = onNextAction;
-            this.onErrorAction = onErrorAction != null ? onErrorAction : t -> {};
-            this.onCompleteAction = onCompleteAction != null ? onCompleteAction : () -> {};
-        }
-
-        @Override
-        public void onSubscribe(Disposable d) {
-            System.out.println(">> onSubscribe");
-        }
-
-        @Override
-        public void onNext(T item) {
-            if (onNextAction != null) onNextAction.accept(item);
-        }
-
-        @Override
-        public void onError(Throwable t) {
-            onErrorAction.accept(t);
-        }
-
-        @Override
-        public void onComplete() {
-            onCompleteAction.run();
-        }
     }
 }

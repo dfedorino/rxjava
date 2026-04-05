@@ -1,7 +1,7 @@
 package com.dfedorino.rxjava.operators.threading;
 
 import com.dfedorino.rxjava.core.Observable;
-import com.dfedorino.rxjava.core.Observer;
+import com.dfedorino.rxjava.util.TestObserver;
 import com.dfedorino.rxjava.scheduler.Scheduler;
 import com.dfedorino.rxjava.scheduler.Schedulers;
 import org.junit.jupiter.api.Test;
@@ -34,7 +34,7 @@ class ObserveOnOperatorTest {
                     emitter.onComplete();
                 })
                 .observeOn(Schedulers.computation())
-                .subscribe(new SimpleObserver<>(
+                .subscribe(new TestObserver<>(
                         item -> {
                             onNextThread.set(Thread.currentThread().getName());
                             latch.countDown();
@@ -58,7 +58,7 @@ class ObserveOnOperatorTest {
         Observable.<Integer>create(emitter ->
                         emitter.onError(new RuntimeException("Test error")))
                 .observeOn(Schedulers.computation())
-                .subscribe(new SimpleObserver<>(
+                .subscribe(new TestObserver<>(
                         null,
                         error -> {
                             errorThread.set(Thread.currentThread().getName());
@@ -80,7 +80,7 @@ class ObserveOnOperatorTest {
 
         Observable.<Integer>create(emitter -> emitter.onComplete())
                 .observeOn(Schedulers.io())
-                .subscribe(new SimpleObserver<>(
+                .subscribe(new TestObserver<>(
                         null, null,
                         () -> {
                             completeThread.set(Thread.currentThread().getName());
@@ -106,7 +106,7 @@ class ObserveOnOperatorTest {
                     emitter.onComplete();
                 })
                 .observeOn(Schedulers.single())
-                .subscribe(new SimpleObserver<>(
+                .subscribe(new TestObserver<>(
                         item -> {
                             received.add(item);
                             latch.countDown();
@@ -127,7 +127,7 @@ class ObserveOnOperatorTest {
         Observable.<Integer>create(emitter ->
                         emitter.onError(new RuntimeException("Test error")))
                 .observeOn(Schedulers.io())
-                .subscribe(new SimpleObserver<>(null, t -> {
+                .subscribe(new TestObserver<>(null, t -> {
                     error.set(t);
                     latch.countDown();
                 }, null));
@@ -145,7 +145,7 @@ class ObserveOnOperatorTest {
 
         Observable.<Integer>create(emitter -> emitter.onComplete())
                 .observeOn(Schedulers.io())
-                .subscribe(new SimpleObserver<>(null, null, () -> {
+                .subscribe(new TestObserver<>(null, null, () -> {
                     completed.set(true);
                     latch.countDown();
                 }));
@@ -168,7 +168,7 @@ class ObserveOnOperatorTest {
                     emitter.onComplete();
                 })
                 .observeOn(Schedulers.io())
-                .subscribe(new SimpleObserver<>(
+                .subscribe(new TestObserver<>(
                         item -> {
                             received.add(item);
                             disposableRef.get().dispose();
@@ -195,7 +195,7 @@ class ObserveOnOperatorTest {
                 })
                 .observeOn(Schedulers.io())
                 .observeOn(Schedulers.computation())
-                .subscribe(new SimpleObserver<>(
+                .subscribe(new TestObserver<>(
                         item -> {
                             firstObserveOnThread.set(Thread.currentThread().getName());
                             latch.countDown();
@@ -222,7 +222,7 @@ class ObserveOnOperatorTest {
                 })
                 .subscribeOn(Schedulers.io())
                 .observeOn(Schedulers.computation())
-                .subscribe(new SimpleObserver<>(
+                .subscribe(new TestObserver<>(
                         item -> {
                             onNextThread.set(Thread.currentThread().getName());
                             latch.countDown();
@@ -251,7 +251,7 @@ class ObserveOnOperatorTest {
                     mapThread.set(Thread.currentThread().getName());
                     return x * 2;
                 })
-                .subscribe(new SimpleObserver<>(
+                .subscribe(new TestObserver<>(
                         item -> {
                             received.add(item);
                             latch.countDown();
@@ -279,7 +279,7 @@ class ObserveOnOperatorTest {
                     latch.countDown();
                 })
                 .observeOn(shutdownScheduler)
-                .subscribe(new SimpleObserver<>(null, error::set, null));
+                .subscribe(new TestObserver<>(null, error::set, null));
 
         assertDoesNotThrow(() -> {
             try {
@@ -299,7 +299,7 @@ class ObserveOnOperatorTest {
 
         Observable.<Integer>create(emitter -> emitter.onComplete())
                 .observeOn(Schedulers.io())
-                .subscribe(new SimpleObserver<>(
+                .subscribe(new TestObserver<>(
                         received::add, null,
                         () -> {
                             completed.set(true);
@@ -414,55 +414,5 @@ class ObserveOnOperatorTest {
 
         assertTrue(mapThread.get().contains("RxComputation") || mapThread.get().contains("computation"),
                 "Map should execute in computation thread, but was: " + mapThread.get());
-    }
-
-    // Helper observer
-    private static class SimpleObserver<T> implements Observer<T> {
-        private final java.util.function.Consumer<T> onNextAction;
-        private final java.util.function.Consumer<Throwable> onErrorAction;
-        private final Runnable onCompleteAction;
-        private final java.util.function.Consumer<com.dfedorino.rxjava.core.Disposable> onSubscribeAction;
-
-        SimpleObserver(java.util.function.Consumer<T> onNextAction,
-                       java.util.function.Consumer<Throwable> onErrorAction,
-                       Runnable onCompleteAction) {
-            this(onNextAction, onErrorAction, onCompleteAction, null);
-        }
-
-        SimpleObserver(java.util.function.Consumer<T> onNextAction,
-                       java.util.function.Consumer<Throwable> onErrorAction,
-                       Runnable onCompleteAction,
-                       java.util.function.Consumer<com.dfedorino.rxjava.core.Disposable> onSubscribeAction) {
-            this.onNextAction = onNextAction;
-            this.onErrorAction = onErrorAction != null ? onErrorAction : t -> {};
-            this.onCompleteAction = onCompleteAction != null ? onCompleteAction : () -> {};
-            this.onSubscribeAction = onSubscribeAction != null ? onSubscribeAction : d -> {};
-        }
-
-        @Override
-        public void onSubscribe(com.dfedorino.rxjava.core.Disposable d) {
-            onSubscribeAction.accept(d);
-        }
-
-        @Override
-        public void onNext(T item) {
-            if (onNextAction != null) {
-                try {
-                    onNextAction.accept(item);
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        }
-
-        @Override
-        public void onError(Throwable t) {
-            onErrorAction.accept(t);
-        }
-
-        @Override
-        public void onComplete() {
-            onCompleteAction.run();
-        }
     }
 }
