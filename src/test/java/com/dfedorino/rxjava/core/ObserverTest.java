@@ -1,5 +1,7 @@
 package com.dfedorino.rxjava.core;
 
+import com.dfedorino.rxjava.util.TestObserver;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -10,150 +12,80 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DisplayName("Observer")
 class ObserverTest {
 
     @Test
-    @DisplayName("should receive items via onNext")
+    @DisplayName("получает элементы через onNext")
     void shouldReceiveItemsViaOnNext() {
-        // Arrange
         List<String> received = new ArrayList<>();
-        Observer<String> observer = createTestObserver(
-                received::add,
-                null,
-                null,
-                null
-        );
+        Observer<String> observer = TestObserver.<String>builder()
+                .onNextAction(received::add)
+                .build();
 
-        // Act
         observer.onNext("Hello");
         observer.onNext("World");
 
-        // Assert
         assertThat(received)
                 .hasSize(2)
                 .containsExactly("Hello", "World");
     }
 
     @Test
-    @DisplayName("should receive error via onError")
+    @DisplayName("получает ошибку через onError")
     void shouldReceiveErrorViaOnError() {
-        // Arrange
-        AtomicReference<Throwable> receivedError = new AtomicReference<>();
-        Observer<String> observer = createTestObserver(
-                null,
-                receivedError::set,
-                null,
-                null
-        );
+        AtomicReference<Throwable> error = new AtomicReference<>();
+        Observer<String> observer = TestObserver.<String>builder()
+                .onErrorAction(error::set)
+                .build();
         RuntimeException testError = new RuntimeException("Test error");
 
-        // Act
         observer.onError(testError);
 
-        // Assert
-        assertThat(receivedError.get()).isSameAs(testError);
+        assertThat(error.get()).isSameAs(testError);
     }
 
     @Test
-    @DisplayName("should receive completion notification via onComplete")
-    void shouldReceiveCompletionNotificationViaOnComplete() {
-        // Arrange
-        AtomicBoolean completed = new AtomicBoolean(false);
-        Observer<String> observer = createTestObserver(
-                null,
-                null,
-                () -> completed.set(true),
-                null
-        );
+    @DisplayName("получает уведомление о завершении через onComplete")
+    void shouldReceiveCompletionViaOnComplete() {
+        AtomicBoolean completed = new AtomicBoolean();
+        Observer<String> observer = TestObserver.<String>builder()
+                .onCompleteAction(() -> completed.set(true))
+                .build();
 
-        // Act
         observer.onComplete();
 
-        // Assert
         assertThat(completed.get()).isTrue();
     }
 
     @Test
-    @DisplayName("should receive Disposable via onSubscribe")
-    void shouldReceiveDisposableViaOnSubscribe() {
-        // Arrange
-        AtomicReference<Disposable> receivedDisposable = new AtomicReference<>();
-        Observer<String> observer = createTestObserver(
-                null,
-                null,
-                null,
-                receivedDisposable::set
-        );
-        Disposable testDisposable = new Disposable() {
-            @Override
-            public void dispose() {}
-            @Override
-            public boolean isDisposed() { return false; }
-        };
-
-        // Act
-        observer.onSubscribe(testDisposable);
-
-        // Assert
-        assertThat(receivedDisposable.get()).isSameAs(testDisposable);
-    }
-
-    @Test
-    @DisplayName("should handle multiple callbacks in sequence")
-    void shouldHandleMultipleCallbacksInSequence() {
-        // Arrange
+    @DisplayName("обрабатывает последовательность обратных вызовов")
+    void shouldHandleCallbackSequence() {
         List<String> events = new ArrayList<>();
-        Observer<String> observer = createTestObserver(
-                item -> events.add("onNext:" + item),
-                t -> events.add("onError:" + t.getMessage()),
-                () -> events.add("onComplete"),
-                d -> events.add("onSubscribe")
-        );
+        Observer<String> observer = TestObserver.<String>builder()
+                .onNextAction(item -> events.add("onNext:" + item))
+                .onCompleteAction(() -> events.add("onComplete"))
+                .onErrorAction(t -> events.add("onError:" + t.getMessage()))
+                .onSubscribeAction(d -> events.add("onSubscribe"))
+                .build();
 
-        // Act
-        Disposable testDisposable = new Disposable() {
+        observer.onSubscribe(new Disposable() {
             @Override
-            public void dispose() {}
+            public void dispose() {
+                Assertions.fail("Should not call `dispose`");
+            }
+
             @Override
-            public boolean isDisposed() { return false; }
-        };
-        observer.onSubscribe(testDisposable);
+            public boolean isDisposed() {
+                Assertions.fail("Should not call `isDisposed`");
+                return false;
+            }
+        });
         observer.onNext("item1");
         observer.onNext("item2");
         observer.onComplete();
 
-        // Assert
         assertThat(events)
                 .hasSize(4)
                 .containsExactly("onSubscribe", "onNext:item1", "onNext:item2", "onComplete");
-    }
-
-    private static <T> Observer<T> createTestObserver(
-            java.util.function.Consumer<T> onNext,
-            java.util.function.Consumer<Throwable> onError,
-            Runnable onComplete,
-            java.util.function.Consumer<Disposable> onSubscribe) {
-        return new Observer<>() {
-            @Override
-            public void onSubscribe(Disposable d) {
-                if (onSubscribe != null) onSubscribe.accept(d);
-            }
-
-            @Override
-            public void onNext(T item) {
-                if (onNext != null) onNext.accept(item);
-            }
-
-            @Override
-            public void onError(Throwable t) {
-                if (onError != null) onError.accept(t);
-            }
-
-            @Override
-            public void onComplete() {
-                if (onComplete != null) onComplete.run();
-            }
-        };
     }
 }

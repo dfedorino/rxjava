@@ -1,9 +1,8 @@
 package com.dfedorino.rxjava.operators.predicate;
 
+import com.dfedorino.rxjava.core.Disposable;
 import com.dfedorino.rxjava.core.Observable;
 import com.dfedorino.rxjava.core.ObservableEmitter;
-import com.dfedorino.rxjava.core.Disposable;
-import com.dfedorino.rxjava.core.ObservableOnSubscribe;
 import com.dfedorino.rxjava.util.TestObserver;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
@@ -19,19 +18,15 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DisplayName("Filter operator test")
 class FilterOperatorTest {
 
     @Test
-    @DisplayName("Should pass only elements matching predicate")
-    void shouldPassOnlyMatchingElements() {
-        // Arrange
-        List<Integer> source = List.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+    @DisplayName("пропускает только элементы, удовлетворяющие предикату")
+    void shouldPassOnlyMatching() {
         List<Integer> received = new ArrayList<>();
 
-        // Act
         Observable.<Integer>create(emitter -> {
-                    source.forEach(emitter::onNext);
+                    for (int i = 1; i <= 10; i++) emitter.onNext(i);
                     emitter.onComplete();
                 })
                 .filter(x -> x % 2 == 0)
@@ -39,20 +34,17 @@ class FilterOperatorTest {
                         .onNextAction(received::add)
                         .build());
 
-        // Assert
         assertThat(received)
                 .hasSize(5)
                 .containsExactly(2, 4, 6, 8, 10);
     }
 
     @Test
-    @DisplayName("Should pass all elements when predicate is always true")
-    void shouldPassAllElementsWhenPredicateAlwaysTrue() {
-        // Arrange
-        List<Integer> source = List.of(1, 2, 3, 4, 5);
+    @DisplayName("пропускает все элементы при предикате true")
+    void shouldPassAllWhenAlwaysTrue() {
         List<Integer> received = new ArrayList<>();
+        List<Integer> source = List.of(1, 2, 3, 4, 5);
 
-        // Act
         Observable.<Integer>create(emitter -> {
                     source.forEach(emitter::onNext);
                     emitter.onComplete();
@@ -62,21 +54,17 @@ class FilterOperatorTest {
                         .onNextAction(received::add)
                         .build());
 
-        // Assert
         assertThat(received).isEqualTo(source);
     }
 
     @Test
-    @DisplayName("Should filter out all elements when predicate is always false")
-    void shouldFilterAllElementsWhenPredicateAlwaysFalse() {
-        // Arrange
-        List<Integer> source = List.of(1, 2, 3, 4, 5);
+    @DisplayName("фильтрует все элементы при предикате false")
+    void shouldFilterAllWhenAlwaysFalse() {
         List<Integer> received = new ArrayList<>();
-        AtomicBoolean completed = new AtomicBoolean(false);
+        AtomicBoolean completed = new AtomicBoolean();
 
-        // Act
         Observable.<Integer>create(emitter -> {
-                    source.forEach(emitter::onNext);
+                    for (int i = 1; i <= 5; i++) emitter.onNext(i);
                     emitter.onComplete();
                 })
                 .filter(x -> false)
@@ -85,19 +73,16 @@ class FilterOperatorTest {
                         .onCompleteAction(() -> completed.set(true))
                         .build());
 
-        // Assert
         assertThat(received).isEmpty();
         assertThat(completed).isTrue();
     }
 
     @Test
-    @DisplayName("Should handle empty stream")
+    @DisplayName("обрабатывает пустой поток")
     void shouldHandleEmptyStream() {
-        // Arrange
         List<Integer> received = new ArrayList<>();
-        AtomicBoolean completed = new AtomicBoolean(false);
+        AtomicBoolean completed = new AtomicBoolean();
 
-        // Act
         Observable.<Integer>create(ObservableEmitter::onComplete)
                 .filter(x -> x > 5)
                 .subscribe(TestObserver.<Integer>builder()
@@ -105,18 +90,15 @@ class FilterOperatorTest {
                         .onCompleteAction(() -> completed.set(true))
                         .build());
 
-        // Assert
         assertThat(received).isEmpty();
         assertThat(completed).isTrue();
     }
 
     @Test
-    @DisplayName("Should filter null values")
+    @DisplayName("фильтрует null значения")
     void shouldFilterNullValues() {
-        // Arrange
         List<String> received = new ArrayList<>();
 
-        // Act
         Observable.<String>create(emitter -> {
                     emitter.onNext("Hello");
                     emitter.onNext(null);
@@ -128,19 +110,16 @@ class FilterOperatorTest {
                         .onNextAction(received::add)
                         .build());
 
-        // Assert
         assertThat(received)
                 .hasSize(2)
                 .containsExactly("Hello", "World");
     }
 
     @Test
-    @DisplayName("Should chain multiple filter operators")
+    @DisplayName("цепочка из нескольких filter")
     void shouldChainMultipleFilters() {
-        // Arrange
         List<Integer> received = new ArrayList<>();
 
-        // Act
         Observable.<Integer>create(emitter -> {
                     emitter.onNext(1);
                     emitter.onNext(2);
@@ -155,21 +134,18 @@ class FilterOperatorTest {
                         .onNextAction(received::add)
                         .build());
 
-        // Assert
         assertThat(received)
                 .hasSize(2)
                 .containsExactly(3, 4);
     }
 
     @Test
-    @DisplayName("Should propagate upstream error through onError")
+    @DisplayName("перебрасывает ошибку от источника в onError")
     void shouldPropagateUpstreamError() {
-        // Arrange
         List<Integer> received = new ArrayList<>();
         AtomicReference<Throwable> capturedError = new AtomicReference<>();
         RuntimeException testError = new RuntimeException("Test error");
 
-        // Act
         Observable.<Integer>create(emitter -> {
                     emitter.onNext(1);
                     emitter.onNext(10);
@@ -181,21 +157,19 @@ class FilterOperatorTest {
                         .onErrorAction(capturedError::set)
                         .build());
 
-        // Assert
         assertThat(received)
                 .hasSize(1)
                 .containsExactly(10);
-        assertThat(capturedError.get()).isSameAs(testError);
+        assertThat(capturedError.get())
+                .isSameAs(testError);
     }
 
     @Test
-    @DisplayName("Should propagate predicate exception as onError")
+    @DisplayName("перебрасывает исключение из предиката в onError")
     void shouldPropagatePredicateException() {
-        // Arrange
         List<Integer> received = new ArrayList<>();
         AtomicReference<Throwable> capturedError = new AtomicReference<>();
 
-        // Act
         Observable.<Integer>create(emitter -> {
                     emitter.onNext(1);
                     emitter.onNext(2);
@@ -212,23 +186,18 @@ class FilterOperatorTest {
                         .onErrorAction(capturedError::set)
                         .build());
 
-        // Assert
-        assertThat(received)
-                .hasSize(1)
-                .containsExactly(1);
+        assertThat(received).hasSize(1).containsExactly(1);
         assertThat(capturedError.get())
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Exception in predicate");
     }
 
     @Test
-    @DisplayName("Should receive disposable and stop emitting after dispose")
-    void shouldStopEmittingAfterDispose() {
-        // Arrange
-        AtomicInteger emitCount = new AtomicInteger(0);
+    @DisplayName("останавливает эмиссию после dispose")
+    void shouldStopAfterDispose() {
+        AtomicInteger emitCount = new AtomicInteger();
         AtomicReference<Disposable> disposableRef = new AtomicReference<>();
 
-        // Act
         Observable.<Integer>create(emitter -> {
                     for (int i = 1; i <= 10; i++) {
                         emitter.onNext(i);
@@ -241,56 +210,47 @@ class FilterOperatorTest {
                         .onSubscribeAction(disposableRef::set)
                         .build());
 
-        // Assert
         assertThat(disposableRef.get()).isNotNull();
         disposableRef.get().dispose();
         assertThat(emitCount).hasValue(5);
     }
 
     @Test
-    @DisplayName("Should not call predicate after dispose")
+    @DisplayName("не вызывает предикат после dispose")
     void shouldNotCallPredicateAfterDispose() {
-        // Arrange
-        AtomicInteger predicateCallCount = new AtomicInteger(0);
+        AtomicInteger predicateCallCount = new AtomicInteger();
         AtomicReference<Disposable> disposableRef = new AtomicReference<>();
         CountDownLatch disposedLatch = new CountDownLatch(1);
 
-        // Act
-        ObservableOnSubscribe<Integer> source = emitter -> {
-            for (int i = 1; i <= 10; i++) {
-                emitter.onNext(i);
-                if (i == 5) {
-                    disposableRef.get().dispose();
-                    disposedLatch.countDown();
-                }
-            }
-            emitter.onComplete();
-        };
-        Observable.create(source)
+        Observable.<Integer>create(emitter -> {
+                    for (int i = 1; i <= 10; i++) {
+                        emitter.onNext(i);
+                        if (i == 5) {
+                            disposableRef.get().dispose();
+                            disposedLatch.countDown();
+                        }
+                    }
+                    emitter.onComplete();
+                })
                 .filter(x -> {
                     int count = predicateCallCount.incrementAndGet();
-                    if (disposedLatch.getCount() == 0) {
-                        // Signal that predicate was called after dispose
+                    if (disposedLatch.getCount() == 0)
                         Assertions.fail("Predicate called after dispose, call #" + count);
-                    }
                     return true;
                 })
                 .subscribe(TestObserver.<Integer>builder()
                         .onSubscribeAction(disposableRef::set)
                         .build());
 
-        // Assert — if we reach here without AssertionError, test passes
         assertThat(predicateCallCount.get()).isLessThanOrEqualTo(5);
     }
 
     @Test
-    @DisplayName("Should handle single element stream")
-    void shouldHandleSingleElementStream() {
-        // Arrange
+    @DisplayName("обрабатывает один элемент")
+    void shouldHandleSingleElement() {
         List<Integer> received = new ArrayList<>();
-        AtomicBoolean completed = new AtomicBoolean(false);
+        AtomicBoolean completed = new AtomicBoolean();
 
-        // Act
         Observable.<Integer>create(emitter -> {
                     emitter.onNext(42);
                     emitter.onComplete();
@@ -301,7 +261,6 @@ class FilterOperatorTest {
                         .onCompleteAction(() -> completed.set(true))
                         .build());
 
-        // Assert
         assertThat(received)
                 .hasSize(1)
                 .containsExactly(42);
@@ -309,13 +268,11 @@ class FilterOperatorTest {
     }
 
     @Test
-    @DisplayName("Should handle single element that gets filtered out")
-    void shouldHandleSingleElementFilteredOut() {
-        // Arrange
+    @DisplayName("обрабатывает один отфильтрованный элемент")
+    void shouldHandleSingleFilteredOut() {
         List<Integer> received = new ArrayList<>();
-        AtomicBoolean completed = new AtomicBoolean(false);
+        AtomicBoolean completed = new AtomicBoolean();
 
-        // Act
         Observable.<Integer>create(emitter -> {
                     emitter.onNext(5);
                     emitter.onComplete();
@@ -326,137 +283,113 @@ class FilterOperatorTest {
                         .onCompleteAction(() -> completed.set(true))
                         .build());
 
-        // Assert
         assertThat(received).isEmpty();
         assertThat(completed).isTrue();
     }
 
     @Test
-    @DisplayName("Should call predicate exactly once per element")
-    void shouldCallPredicateExactlyOncePerElement() {
-        // Arrange
+    @DisplayName("вызывает предикат ровно один раз на элемент")
+    void shouldCallPredicateExactlyOnce() {
+        AtomicInteger predicateCallCount = new AtomicInteger();
         List<Integer> source = List.of(1, 2, 3, 4, 5);
-        AtomicInteger predicateCallCount = new AtomicInteger(0);
 
-        // Act
         Observable.<Integer>create(emitter -> {
                     source.forEach(emitter::onNext);
                     emitter.onComplete();
-                })
-                .filter(x -> {
+                }).filter(x -> {
                     predicateCallCount.incrementAndGet();
                     return x % 2 == 0;
                 })
-                .subscribe(TestObserver.<Integer>builder()
-                        .build());
+                .subscribe(TestObserver.<Integer>builder().build());
 
-        // Assert
         assertThat(predicateCallCount).hasValue(5);
     }
 
     @Test
-    @DisplayName("Should propagate error emitted before any onNext")
-    void shouldPropagateErrorBeforeAnyOnNext() {
-        // Arrange
+    @DisplayName("пробрасывает ошибку до любого onNext")
+    void shouldPropagateErrorBeforeOnNext() {
         AtomicReference<Throwable> capturedError = new AtomicReference<>();
-        AtomicBoolean receivedOnNext = new AtomicBoolean(false);
+        AtomicBoolean receivedOnNext = new AtomicBoolean();
         RuntimeException testError = new RuntimeException("Immediate error");
 
-        // Act
-        Observable.<Integer>create(emitter -> {
-                    emitter.onError(testError);
-                })
+        Observable.<Integer>create(emitter -> emitter.onError(testError))
                 .filter(x -> x > 0)
                 .subscribe(TestObserver.<Integer>builder()
                         .onNextAction(item -> receivedOnNext.set(true))
                         .onErrorAction(capturedError::set)
                         .build());
 
-        // Assert
         assertThat(receivedOnNext).isFalse();
         assertThat(capturedError.get()).isSameAs(testError);
     }
 
     @Test
-    @DisplayName("Should throw NPE when predicate is null and onNext is called")
+    @DisplayName("выбрасывает NPE при null предикате")
     void shouldThrowNPEForNullPredicate() {
-        // Arrange
         AtomicReference<Throwable> capturedError = new AtomicReference<>();
-        Observable<Integer> source = Observable.<Integer>create(emitter -> {
-            emitter.onNext(1);
-            emitter.onComplete();
-        });
-
-        // Act
-        source.filter(null)
-                .subscribe(TestObserver.<Integer>builder()
-                        .onErrorAction(capturedError::set)
-                        .build());
-
-        // Assert — NPE occurs when predicate.test() is called on null
-        assertThat(capturedError.get())
-                .isInstanceOf(NullPointerException.class);
-    }
-
-    @Test
-    @DisplayName("Should ignore second onComplete signal")
-    void shouldIgnoreSecondOnComplete() {
-        // Arrange
-        AtomicInteger completeCount = new AtomicInteger(0);
-
-        // Act
         Observable.<Integer>create(emitter -> {
                     emitter.onNext(1);
                     emitter.onComplete();
-                    emitter.onComplete(); // Should be ignored
+                })
+                .filter(null)
+                .subscribe(TestObserver.<Integer>builder().onErrorAction(capturedError::set).build());
+
+        assertThat(capturedError.get()).isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("игнорирует повторный onComplete")
+    void shouldIgnoreSecondOnComplete() {
+        AtomicInteger completeCount = new AtomicInteger();
+
+        Observable.<Integer>create(emitter -> {
+                    emitter.onNext(1);
+                    emitter.onComplete();
+                    emitter.onComplete();
                 })
                 .filter(x -> true)
                 .subscribe(TestObserver.<Integer>builder()
-                        .onNextAction(item -> {})
+                        .onNextAction(item -> {
+                        })
                         .onCompleteAction(completeCount::incrementAndGet)
                         .build());
 
-        // Assert
         assertThat(completeCount).hasValue(1);
     }
 
     @Test
-    @DisplayName("Should ignore onError after onComplete")
+    @DisplayName("игнорирует onError после onComplete")
     void shouldIgnoreOnErrorAfterOnComplete() {
-        // Arrange
-        AtomicBoolean completed = new AtomicBoolean(false);
+        AtomicBoolean completed = new AtomicBoolean();
         AtomicReference<Throwable> capturedError = new AtomicReference<>();
 
-        // Act
         Observable.<Integer>create(emitter -> {
                     emitter.onNext(1);
                     emitter.onComplete();
-                    emitter.onError(new RuntimeException("Should be ignored"));
+                    emitter.onError(new RuntimeException("Ignored"));
                 })
                 .filter(x -> true)
                 .subscribe(TestObserver.<Integer>builder()
-                        .onNextAction(item -> {})
+                        .onNextAction(item -> {
+                        })
                         .onCompleteAction(() -> completed.set(true))
                         .onErrorAction(capturedError::set)
                         .build());
 
-        // Assert
         assertThat(completed).isTrue();
         assertThat(capturedError.get()).isNull();
     }
 
     @Test
-    @DisplayName("Should ignore onComplete after onError")
+    @DisplayName("игнорирует onComplete после onError")
     void shouldIgnoreOnCompleteAfterOnError() {
-        // Arrange
         AtomicReference<Throwable> capturedError = new AtomicReference<>();
-        AtomicBoolean completed = new AtomicBoolean(false);
+        AtomicBoolean completed = new AtomicBoolean();
         RuntimeException testError = new RuntimeException("Test error");
 
-        // Act
         Observable.<Integer>create(emitter -> {
                     emitter.onError(testError);
-                    emitter.onComplete(); // Should be ignored
+                    emitter.onComplete();
                 })
                 .filter(x -> true)
                 .subscribe(TestObserver.<Integer>builder()
@@ -464,7 +397,6 @@ class FilterOperatorTest {
                         .onCompleteAction(() -> completed.set(true))
                         .build());
 
-        // Assert
         assertThat(capturedError.get()).isSameAs(testError);
         assertThat(completed).isFalse();
     }

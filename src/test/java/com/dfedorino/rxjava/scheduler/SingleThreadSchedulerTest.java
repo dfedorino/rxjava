@@ -14,153 +14,80 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@DisplayName("SingleThreadScheduler Tests")
 class SingleThreadSchedulerTest {
 
     private SingleThreadScheduler scheduler;
 
     @BeforeEach
-    void setUp() {
-        scheduler = new SingleThreadScheduler();
-    }
+    void setUp() { scheduler = new SingleThreadScheduler(); }
 
     @AfterEach
-    void tearDown() {
-        scheduler.shutdown();
-    }
+    void tearDown() { scheduler.shutdown(); }
 
     @Test
-    @DisplayName("Should execute task in single thread with correct naming")
+    @DisplayName("выполняет задачу в одиночном потоке")
     void shouldExecuteTaskInSingleThread() throws InterruptedException {
-        // Arrange
         CountDownLatch latch = new CountDownLatch(1);
-        AtomicBoolean executed = new AtomicBoolean(false);
-        AtomicBoolean correctThreadName = new AtomicBoolean(false);
+        AtomicBoolean executed = new AtomicBoolean();
+        AtomicBoolean correctThread = new AtomicBoolean();
 
-        // Act
         scheduler.execute(() -> {
             executed.set(true);
-            correctThreadName.set("rxjava-single".equals(Thread.currentThread().getName()));
+            correctThread.set("rxjava-single".equals(Thread.currentThread().getName()));
             latch.countDown();
         });
 
-        boolean completed = latch.await(2, TimeUnit.SECONDS);
-
-        // Assert
-        assertThat(completed)
-            .as("Task should complete within timeout")
-            .isTrue();
-        assertThat(executed.get())
-            .as("Task should be executed")
-            .isTrue();
-        assertThat(correctThreadName.get())
-            .as("Thread name should be 'rxjava-single'")
-            .isTrue();
+        assertThat(latch.await(2, TimeUnit.SECONDS)).isTrue();
+        assertThat(executed.get()).isTrue();
+        assertThat(correctThread.get()).isTrue();
     }
 
     @Test
-    @DisplayName("Should throw RejectedExecutionException when shut down")
-    void shouldThrowExceptionWhenShutDown() {
-        // Arrange
+    @DisplayName("выбрасывает исключение после shutdown")
+    void shouldThrowAfterShutdown() {
         scheduler.shutdown();
-
-        // Act & Assert
         assertThatThrownBy(() -> scheduler.execute(() -> {}))
-            .isInstanceOf(RejectedExecutionException.class)
-            .hasMessageContaining("shut down");
+                .isInstanceOf(RejectedExecutionException.class)
+                .hasMessageContaining("shut down");
     }
 
     @Test
-    @DisplayName("Should execute tasks sequentially in same thread")
-    void shouldExecuteTasksSequentially() throws InterruptedException {
-        // Arrange
+    @DisplayName("выполняет задачи последовательно в одном потоке")
+    void shouldExecuteSequentially() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(3);
         Thread[] threads = new Thread[3];
 
-        // Act
-        scheduler.execute(() -> {
-            threads[0] = Thread.currentThread();
-            latch.countDown();
-        });
+        scheduler.execute(() -> { threads[0] = Thread.currentThread(); latch.countDown(); });
+        scheduler.execute(() -> { threads[1] = Thread.currentThread(); latch.countDown(); });
+        scheduler.execute(() -> { threads[2] = Thread.currentThread(); latch.countDown(); });
 
-        scheduler.execute(() -> {
-            threads[1] = Thread.currentThread();
-            latch.countDown();
-        });
-
-        scheduler.execute(() -> {
-            threads[2] = Thread.currentThread();
-            latch.countDown();
-        });
-
-        boolean completed = latch.await(3, TimeUnit.SECONDS);
-
-        // Assert
-        assertThat(completed)
-            .as("All tasks should complete within timeout")
-            .isTrue();
-        assertThat(threads[1])
-            .as("Second task should run in same thread as first")
-            .isSameAs(threads[0]);
-        assertThat(threads[2])
-            .as("Third task should run in same thread as first")
-            .isSameAs(threads[0]);
+        assertThat(latch.await(3, TimeUnit.SECONDS)).isTrue();
+        assertThat(threads[1]).isSameAs(threads[0]);
+        assertThat(threads[2]).isSameAs(threads[0]);
     }
 
     @Test
-    @DisplayName("Should maintain task execution order")
-    void shouldMaintainTaskOrder() throws InterruptedException {
-        // Arrange
+    @DisplayName("сохраняет порядок выполнения")
+    void shouldMaintainOrder() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(3);
-        AtomicInteger executionOrder = new AtomicInteger(0);
-        int[] order = new int[3];
+        AtomicInteger order = new AtomicInteger();
+        int[] result = new int[3];
 
-        // Act
-        scheduler.execute(() -> {
-            order[0] = executionOrder.incrementAndGet();
-            latch.countDown();
-        });
+        scheduler.execute(() -> { result[0] = order.incrementAndGet(); latch.countDown(); });
+        scheduler.execute(() -> { result[1] = order.incrementAndGet(); latch.countDown(); });
+        scheduler.execute(() -> { result[2] = order.incrementAndGet(); latch.countDown(); });
 
-        scheduler.execute(() -> {
-            order[1] = executionOrder.incrementAndGet();
-            latch.countDown();
-        });
-
-        scheduler.execute(() -> {
-            order[2] = executionOrder.incrementAndGet();
-            latch.countDown();
-        });
-
-        boolean completed = latch.await(3, TimeUnit.SECONDS);
-
-        // Assert
-        assertThat(completed)
-            .as("All tasks should complete within timeout")
-            .isTrue();
-        assertThat(order[0])
-            .as("First task should execute first")
-            .isEqualTo(1);
-        assertThat(order[1])
-            .as("Second task should execute second")
-            .isEqualTo(2);
-        assertThat(order[2])
-            .as("Third task should execute third")
-            .isEqualTo(3);
+        assertThat(latch.await(3, TimeUnit.SECONDS)).isTrue();
+        assertThat(result[0]).isEqualTo(1);
+        assertThat(result[1]).isEqualTo(2);
+        assertThat(result[2]).isEqualTo(3);
     }
 
     @Test
-    @DisplayName("Should shutdown gracefully")
+    @DisplayName("корректно останавливается")
     void shouldShutdownGracefully() {
-        // Arrange & Act
-        assertThat(scheduler.isShutdown())
-            .as("Scheduler should not be shutdown initially")
-            .isFalse();
-
+        assertThat(scheduler.isShutdown()).isFalse();
         scheduler.shutdown();
-
-        // Assert
-        assertThat(scheduler.isShutdown())
-            .as("Scheduler should be shutdown after shutdown()")
-            .isTrue();
+        assertThat(scheduler.isShutdown()).isTrue();
     }
 }

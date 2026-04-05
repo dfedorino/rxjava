@@ -14,78 +14,45 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/**
- * Parameterized tests for all Scheduler implementations.
- * Tests common behavior defined by the Scheduler interface.
- */
-@DisplayName("Scheduler Implementations - Common Behavior")
 class SchedulerContractTest {
 
     static Stream<Scheduler> schedulerProvider() {
-        return Stream.of(
-            new IOThreadScheduler(),
-            new ComputationScheduler(),
-            new SingleThreadScheduler()
-        );
+        return Stream.of(new IOThreadScheduler(), new ComputationScheduler(), new SingleThreadScheduler());
     }
 
     @ParameterizedTest
     @MethodSource("schedulerProvider")
-    @DisplayName("Should execute task successfully before shutdown")
-    void shouldExecuteTaskBeforeShutdown(Scheduler scheduler) throws InterruptedException {
-        // Arrange
+    @DisplayName("выполняет задачу до shutdown")
+    void shouldExecuteTask(Scheduler scheduler) throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
-
-        // Act
         scheduler.execute(latch::countDown);
-        boolean completed = latch.await(2, TimeUnit.SECONDS);
-
-        // Assert
-        assertThat(completed)
-            .as("Task should complete within timeout")
-            .isTrue();
-
+        assertThat(latch.await(2, TimeUnit.SECONDS)).isTrue();
         scheduler.shutdown();
     }
 
     @ParameterizedTest
     @MethodSource("schedulerProvider")
-    @DisplayName("Should throw RejectedExecutionException after shutdown")
-    void shouldThrowExceptionAfterShutdown(Scheduler scheduler) {
-        // Arrange
+    @DisplayName("выбрасывает исключение после shutdown")
+    void shouldThrowAfterShutdown(Scheduler scheduler) {
         scheduler.shutdown();
-
-        // Act & Assert
         assertThatThrownBy(() -> scheduler.execute(() -> {}))
-            .isInstanceOf(RejectedExecutionException.class);
+                .isInstanceOf(RejectedExecutionException.class);
     }
 
     @ParameterizedTest
     @MethodSource("schedulerProvider")
-    @DisplayName("Should report isShutdown as true after shutdown()")
+    @DisplayName("сообщает о состоянии shutdown")
     void shouldReportShutdownState(Scheduler scheduler) {
-        // Arrange & Act
-        assertThat(scheduler.isShutdown())
-            .as("Scheduler should not be shutdown initially")
-            .isFalse();
-
+        assertThat(scheduler.isShutdown()).isFalse();
         scheduler.shutdown();
-
-        // Assert
-        assertThat(scheduler.isShutdown())
-            .as("Scheduler should be shutdown after shutdown()")
-            .isTrue();
+        assertThat(scheduler.isShutdown()).isTrue();
     }
 
     @ParameterizedTest
     @MethodSource("schedulerProvider")
-    @DisplayName("Should handle multiple shutdown() calls gracefully")
-    void shouldHandleMultipleShutdownCalls(Scheduler scheduler) {
-        // Arrange
+    @DisplayName("обрабатывает многократный shutdown")
+    void shouldHandleMultipleShutdowns(Scheduler scheduler) {
         scheduler.shutdown();
-
-        // Act & Assert
-        assertThatNoException()
-            .isThrownBy(scheduler::shutdown);
+        assertThatNoException().isThrownBy(scheduler::shutdown);
     }
 }
