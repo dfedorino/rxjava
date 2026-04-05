@@ -1,7 +1,7 @@
 package com.dfedorino.rxjava.core;
 
+import com.dfedorino.rxjava.util.NoOpDisposable;
 import com.dfedorino.rxjava.util.TestObserver;
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -68,18 +68,7 @@ class ObserverTest {
                 .onSubscribeAction(d -> events.add("onSubscribe"))
                 .build();
 
-        observer.onSubscribe(new Disposable() {
-            @Override
-            public void dispose() {
-                Assertions.fail("Should not call `dispose`");
-            }
-
-            @Override
-            public boolean isDisposed() {
-                Assertions.fail("Should not call `isDisposed`");
-                return false;
-            }
-        });
+        observer.onSubscribe(new NoOpDisposable());
         observer.onNext("item1");
         observer.onNext("item2");
         observer.onComplete();

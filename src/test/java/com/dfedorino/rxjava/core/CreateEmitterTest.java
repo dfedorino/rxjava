@@ -1,6 +1,8 @@
 package com.dfedorino.rxjava.core;
 
+import com.dfedorino.rxjava.exception.ErrorHandlers;
 import com.dfedorino.rxjava.util.TestObserver;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -13,6 +15,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.assertj.core.api.Assertions.*;
 
 class CreateEmitterTest {
+
+    @BeforeEach
+    void setUp() {
+        ErrorHandlers.setErrorHandler(ignored -> {});
+    }
 
     @Test
     @DisplayName("останавливает эмиссию элементов после dispose")

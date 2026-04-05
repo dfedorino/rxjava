@@ -2,6 +2,7 @@ package com.dfedorino.rxjava.operators.predicate;
 
 import com.dfedorino.rxjava.core.Disposable;
 import com.dfedorino.rxjava.core.Observer;
+import com.dfedorino.rxjava.exception.ErrorHandlers;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
@@ -39,6 +40,8 @@ public final class FilterObserver<T> implements Observer<T>, Disposable {
     public void onError(Throwable t) {
         if (terminated.compareAndSet(false, true)) {
             downstream.onError(t);
+        } else {
+            ErrorHandlers.onError(t);
         }
     }
 
@@ -46,6 +49,8 @@ public final class FilterObserver<T> implements Observer<T>, Disposable {
     public void onComplete() {
         if (terminated.compareAndSet(false, true)) {
             downstream.onComplete();
+        } else if (terminated.get()) {
+            ErrorHandlers.onError(new IllegalStateException("onComplete called after termination"));
         }
     }
 

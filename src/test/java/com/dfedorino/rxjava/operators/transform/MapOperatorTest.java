@@ -132,7 +132,7 @@ class MapOperatorTest {
                 .subscribe(TestObserver.<String>builder().onNextAction(received::add).build());
 
         assertThat(received).hasSize(2);
-        assertThat(received.get(0)).isNull();
+        assertThat(received.getFirst()).isNull();
         assertThat(received.get(1)).isEqualTo("Value-2");
     }
 

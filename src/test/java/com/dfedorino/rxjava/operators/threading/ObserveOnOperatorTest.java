@@ -2,9 +2,11 @@ package com.dfedorino.rxjava.operators.threading;
 
 import com.dfedorino.rxjava.core.Observable;
 import com.dfedorino.rxjava.core.ObservableEmitter;
+import com.dfedorino.rxjava.exception.ErrorHandlers;
 import com.dfedorino.rxjava.scheduler.Scheduler;
 import com.dfedorino.rxjava.scheduler.Schedulers;
 import com.dfedorino.rxjava.util.TestObserver;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +21,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ObserveOnOperatorTest {
+
+    @BeforeEach
+    void setUp() {
+        ErrorHandlers.setErrorHandler(ignored -> {});
+    }
 
     @Test
     @DisplayName("переключает onNext на указанный Scheduler")
