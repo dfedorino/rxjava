@@ -3,6 +3,7 @@ package com.dfedorino.rxjava.operators.transform;
 import com.dfedorino.rxjava.core.Disposable;
 import com.dfedorino.rxjava.core.Observable;
 import com.dfedorino.rxjava.core.Observer;
+import com.dfedorino.rxjava.exception.ErrorHandlers;
 
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -59,7 +60,10 @@ public final class FlatMapObserver<T, R> implements Observer<T>, Disposable {
 
     @Override
     public void onError(Throwable t) {
-        if (isDisposed.getAndSet(true)) return;
+        if (isDisposed.getAndSet(true)) {
+            ErrorHandlers.onError(t);
+            return;
+        }
         upstreamDisposable.dispose();
         disposeAllInnerSubscriptions();
         downstream.onError(t);
@@ -90,6 +94,10 @@ public final class FlatMapObserver<T, R> implements Observer<T>, Disposable {
     }
 
     void innerError(Throwable t) {
+        if (isDisposed.get()) {
+            ErrorHandlers.onError(t);
+            return;
+        }
         onError(t);
     }
 

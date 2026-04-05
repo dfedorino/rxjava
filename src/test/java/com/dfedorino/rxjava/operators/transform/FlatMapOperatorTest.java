@@ -3,8 +3,10 @@ package com.dfedorino.rxjava.operators.transform;
 import com.dfedorino.rxjava.core.Disposable;
 import com.dfedorino.rxjava.core.Observable;
 import com.dfedorino.rxjava.core.ObservableEmitter;
+import com.dfedorino.rxjava.exception.ErrorHandlers;
 import com.dfedorino.rxjava.scheduler.Schedulers;
 import com.dfedorino.rxjava.util.TestObserver;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +21,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class FlatMapOperatorTest {
+
+    @BeforeEach
+    void setUp() {
+        ErrorHandlers.setErrorHandler(ignored -> {});
+    }
 
     @Test
     @DisplayName("преобразует элемент в Observable и объединяет результаты")

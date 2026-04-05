@@ -3,6 +3,7 @@ package com.dfedorino.rxjava.operators.threading;
 import com.dfedorino.rxjava.core.Disposable;
 import com.dfedorino.rxjava.core.Observable;
 import com.dfedorino.rxjava.core.Observer;
+import com.dfedorino.rxjava.exception.ErrorHandlers;
 import com.dfedorino.rxjava.scheduler.Scheduler;
 
 import java.util.Queue;
@@ -53,14 +54,20 @@ public final class ObserveOnObservable<T> extends Observable<T> {
 
         @Override
         public void onNext(T item) {
-            if (disposed.get() || done) return;
+            if (disposed.get() || done) {
+                ErrorHandlers.onError(new IllegalStateException("onNext called after termination or disposal or termination"));
+                return;
+            }
             queue.offer(item);
             schedule();
         }
 
         @Override
         public void onError(Throwable t) {
-            if (disposed.get() || done) return;
+            if (disposed.get() || done) {
+                ErrorHandlers.onError(t);
+                return;
+            }
             error = t;
             done = true;
             schedule();
@@ -68,7 +75,10 @@ public final class ObserveOnObservable<T> extends Observable<T> {
 
         @Override
         public void onComplete() {
-            if (disposed.get() || done) return;
+            if (disposed.get() || done) {
+                ErrorHandlers.onError(new IllegalStateException("onComplete called after termination"));
+                return;
+            }
             done = true;
             schedule();
         }

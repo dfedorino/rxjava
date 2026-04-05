@@ -1,5 +1,7 @@
 package com.dfedorino.rxjava.core;
 
+import com.dfedorino.rxjava.exception.ErrorHandlers;
+
 import java.util.concurrent.atomic.AtomicBoolean;
 
 final class CreateEmitter<T> implements ObservableEmitter<T> {
@@ -13,9 +15,11 @@ final class CreateEmitter<T> implements ObservableEmitter<T> {
 
     @Override
     public void onNext(T value) {
-        if (!terminated.get() && !disposed.get()) {
-            observer.onNext(value);
+        if (terminated.get() || disposed.get()) {
+            ErrorHandlers.onError(new IllegalStateException("onNext called after termination or disposal"));
+            return;
         }
+        observer.onNext(value);
     }
 
     @Override
@@ -23,6 +27,8 @@ final class CreateEmitter<T> implements ObservableEmitter<T> {
         if (terminated.compareAndSet(false, true)) {
             disposed.set(true);
             observer.onError(error);
+        } else {
+            ErrorHandlers.onError(error);
         }
     }
 
