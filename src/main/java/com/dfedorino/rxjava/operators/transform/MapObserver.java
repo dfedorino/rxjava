@@ -6,26 +6,12 @@ import com.dfedorino.rxjava.core.Observer;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
-/**
- * Observer-обёртка, который преобразует элементы перед передачей
- * downstream Observer с помощью функции mapper.
- *
- * @param <T> тип элементов исходного потока
- * @param <R> тип элементов после преобразования
- */
 public final class MapObserver<T, R> implements Observer<T>, Disposable {
-
     private final Observer<R> downstream;
     private final Function<? super T, ? extends R> mapper;
     private volatile Disposable disposable;
-    private final AtomicBoolean terminated = new AtomicBoolean(false);
+    private final AtomicBoolean terminated = new AtomicBoolean();
 
-    /**
-     * Создаёт MapObserver для преобразования элементов.
-     *
-     * @param downstream downstream Observer для получения преобразованных элементов
-     * @param mapper     функция для преобразования элементов
-     */
     public MapObserver(Observer<R> downstream, Function<? super T, ? extends R> mapper) {
         this.downstream = downstream;
         this.mapper = mapper;
@@ -39,13 +25,9 @@ public final class MapObserver<T, R> implements Observer<T>, Disposable {
 
     @Override
     public void onNext(T item) {
-        if (terminated.get()) {
-            return;
-        }
-        
+        if (terminated.get()) return;
         try {
-            R result = mapper.apply(item);
-            downstream.onNext(result);
+            downstream.onNext(mapper.apply(item));
         } catch (Throwable e) {
             onError(e);
         }
@@ -67,9 +49,7 @@ public final class MapObserver<T, R> implements Observer<T>, Disposable {
 
     @Override
     public void dispose() {
-        if (disposable != null) {
-            disposable.dispose();
-        }
+        if (disposable != null) disposable.dispose();
     }
 
     @Override

@@ -11,35 +11,20 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 /**
- * Observer-обёртка, который управляет подписками на внутренние Observable
- * и координирует передачу результатов downstream.
- *
- * @param <T> тип элементов исходного потока
- * @param <R> тип элементов результирующего потока
+ * Управляет подписками на внутренние Observable и координирует передачу результатов
  */
 public final class FlatMapObserver<T, R> implements Observer<T>, Disposable {
-
     final Observer<R> downstream;
     private final Function<? super T, ? extends Observable<? extends R>> mapper;
-
     private volatile Disposable upstreamDisposable;
-    private final AtomicInteger activeSubscriptions;
-    private final AtomicBoolean isDisposed;
-    private final AtomicBoolean sourceCompleted;
+    private final AtomicInteger activeSubscriptions = new AtomicInteger();
+    private final AtomicBoolean isDisposed = new AtomicBoolean();
+    private final AtomicBoolean sourceCompleted = new AtomicBoolean();
     private final Queue<Disposable> innerDisposables = new ConcurrentLinkedQueue<>();
 
-    /**
-     * Создаёт FlatMapObserver для управления слиянием потоков.
-     *
-     * @param downstream downstream Observer для получения результатов
-     * @param mapper     функция для преобразования каждого элемента в Observable
-     */
     public FlatMapObserver(Observer<R> downstream, Function<? super T, ? extends Observable<? extends R>> mapper) {
         this.downstream = downstream;
         this.mapper = mapper;
-        this.activeSubscriptions = new AtomicInteger(0);
-        this.isDisposed = new AtomicBoolean(false);
-        this.sourceCompleted = new AtomicBoolean(false);
     }
 
     @Override
@@ -51,16 +36,14 @@ public final class FlatMapObserver<T, R> implements Observer<T>, Disposable {
     @Override
     public void onNext(T item) {
         activeSubscriptions.incrementAndGet();
-
         if (isDisposed.get()) {
             activeSubscriptions.decrementAndGet();
             checkTermination();
             return;
         }
-
         try {
-            Observable<? extends R> innerObservable = mapper.apply(item);
-            subscribeInner(innerObservable);
+            Observable<? extends R> innerObs = mapper.apply(item);
+            subscribeInner(innerObs);
         } catch (Throwable e) {
             activeSubscriptions.decrementAndGet();
             onError(e);
@@ -76,9 +59,7 @@ public final class FlatMapObserver<T, R> implements Observer<T>, Disposable {
 
     @Override
     public void onError(Throwable t) {
-        if (isDisposed.getAndSet(true)) {
-            return;
-        }
+        if (isDisposed.getAndSet(true)) return;
         upstreamDisposable.dispose();
         disposeAllInnerSubscriptions();
         downstream.onError(t);
@@ -92,12 +73,8 @@ public final class FlatMapObserver<T, R> implements Observer<T>, Disposable {
 
     @Override
     public void dispose() {
-        if (isDisposed.getAndSet(true)) {
-            return;
-        }
-        if (upstreamDisposable != null) {
-            upstreamDisposable.dispose();
-        }
+        if (isDisposed.getAndSet(true)) return;
+        if (upstreamDisposable != null) upstreamDisposable.dispose();
         disposeAllInnerSubscriptions();
     }
 
@@ -106,20 +83,12 @@ public final class FlatMapObserver<T, R> implements Observer<T>, Disposable {
         return isDisposed.get();
     }
 
-    /**
-     * Вызывается внутренним Observer при завершении.
-     */
     void innerComplete() {
-        if (activeSubscriptions.decrementAndGet() == 0) {
-            if (sourceCompleted.get()) {
-                tryTerminate();
-            }
+        if (activeSubscriptions.decrementAndGet() == 0 && sourceCompleted.get()) {
+            tryTerminate();
         }
     }
 
-    /**
-     * Вызывается внутренним Observer при ошибке.
-     */
     void innerError(Throwable t) {
         onError(t);
     }
@@ -130,13 +99,8 @@ public final class FlatMapObserver<T, R> implements Observer<T>, Disposable {
         }
     }
 
-    /**
-     * Atomically terminates and sends onComplete exactly once.
-     */
     private void tryTerminate() {
-        if (isDisposed.getAndSet(true)) {
-            return;
-        }
+        if (isDisposed.getAndSet(true)) return;
         downstream.onComplete();
     }
 

@@ -11,20 +11,12 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 public abstract class Observable<T> {
-
     public void subscribe(Observer<T> observer) {
         subscribeActual(observer);
     }
 
     protected abstract void subscribeActual(Observer<T> observer);
 
-    /**
-     * Создаёт Observable с пользовательской логикой подписки.
-     *
-     * @param source источник с логикой подписки
-     * @param <T> тип элементов
-     * @return новый Observable
-     */
     public static <T> Observable<T> create(ObservableOnSubscribe<T> source) {
         return new Observable<T>() {
             @Override
@@ -40,55 +32,22 @@ public abstract class Observable<T> {
         };
     }
 
-    /**
-     * Преобразует каждый элемент потока с помощью заданной функции mapper.
-     *
-     * @param mapper функция для преобразования элементов
-     * @param <R> тип элементов результирующего Observable
-     * @return новый Observable с преобразованными элементами
-     */
     public <R> Observable<R> map(Function<? super T, ? extends R> mapper) {
         return new MapObservable<>(this, mapper);
     }
 
-    /**
-     * Пропускает только элементы, удовлетворяющие заданному предикату.
-     *
-     * @param predicate предикат для фильтрации элементов
-     * @return новый Observable с отфильтрованными элементами
-     */
     public Observable<T> filter(Predicate<? super T> predicate) {
         return new FilterObservable<>(this, predicate);
     }
 
-    /**
-     * Преобразует каждый элемент потока в новый Observable с помощью заданной
-     * функции mapper и сливает результаты всех внутренних Observable в один поток.
-     *
-     * @param mapper функция для преобразования каждого элемента в Observable
-     * @param <R> тип элементов результирующего Observable
-     * @return новый Observable с объединёнными результатами
-     */
     public <R> Observable<R> flatMap(Function<? super T, ? extends Observable<? extends R>> mapper) {
         return new FlatMapObservable<>(this, mapper);
     }
 
-    /**
-     * Выполняет подписку на исходный Observable в указанном Scheduler.
-     *
-     * @param scheduler Scheduler для выполнения подписки
-     * @return новый Observable
-     */
     public Observable<T> subscribeOn(Scheduler scheduler) {
         return new SubscribeOnObservable<>(this, scheduler);
     }
 
-    /**
-     * Переключает обработку всех downstream событий (onNext/onError/onComplete) на указанный Scheduler.
-     *
-     * @param scheduler Scheduler для обработки событий
-     * @return новый Observable
-     */
     public Observable<T> observeOn(Scheduler scheduler) {
         return new ObserveOnObservable<>(this, scheduler);
     }
