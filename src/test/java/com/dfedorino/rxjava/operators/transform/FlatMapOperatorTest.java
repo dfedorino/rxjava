@@ -3,12 +3,15 @@ package com.dfedorino.rxjava.operators.transform;
 import com.dfedorino.rxjava.core.Disposable;
 import com.dfedorino.rxjava.core.Observable;
 import com.dfedorino.rxjava.core.ObservableEmitter;
+import com.dfedorino.rxjava.scheduler.Schedulers;
 import com.dfedorino.rxjava.util.TestObserver;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -23,11 +26,21 @@ class FlatMapOperatorTest {
         List<Integer> received = new ArrayList<>();
 
         Observable.<Integer>create(emitter -> {
-            emitter.onNext(1); emitter.onNext(2); emitter.onNext(3); emitter.onComplete();
-        }).flatMap(x -> Observable.<Integer>create(e -> { e.onNext(x * 10); e.onComplete(); }))
-                .subscribe(TestObserver.<Integer>builder().onNextAction(received::add).build());
+                    emitter.onNext(1);
+                    emitter.onNext(2);
+                    emitter.onNext(3);
+                    emitter.onComplete();
+                }).flatMap(x -> Observable.<Integer>create(e -> {
+                    e.onNext(x * 10);
+                    e.onComplete();
+                }))
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(received::add)
+                        .build());
 
-        assertThat(received).hasSize(3).containsExactlyInAnyOrder(10, 20, 30);
+        assertThat(received)
+                .hasSize(3)
+                .containsExactlyInAnyOrder(10, 20, 30);
     }
 
     @Test
@@ -37,7 +50,10 @@ class FlatMapOperatorTest {
         AtomicBoolean completed = new AtomicBoolean();
 
         Observable.<Integer>create(ObservableEmitter::onComplete)
-                .flatMap(x -> Observable.<Integer>create(e -> { e.onNext(x * 2); e.onComplete(); }))
+                .flatMap(x -> Observable.<Integer>create(e -> {
+                    e.onNext(x * 2);
+                    e.onComplete();
+                }))
                 .subscribe(TestObserver.<Integer>builder()
                         .onNextAction(received::add)
                         .onCompleteAction(() -> completed.set(true))
@@ -54,9 +70,15 @@ class FlatMapOperatorTest {
         RuntimeException testError = new RuntimeException("Source error");
 
         Observable.<Integer>create(emitter -> {
-            emitter.onNext(1); emitter.onError(testError);
-        }).flatMap(x -> Observable.<Integer>create(e -> { e.onNext(x * 2); e.onComplete(); }))
-                .subscribe(TestObserver.<Integer>builder().onErrorAction(capturedError::set).build());
+                    emitter.onNext(1);
+                    emitter.onError(testError);
+                }).flatMap(x -> Observable.<Integer>create(e -> {
+                    e.onNext(x * 2);
+                    e.onComplete();
+                }))
+                .subscribe(TestObserver.<Integer>builder()
+                        .onErrorAction(capturedError::set)
+                        .build());
 
         assertThat(capturedError.get()).isSameAs(testError);
     }
@@ -67,9 +89,14 @@ class FlatMapOperatorTest {
         AtomicReference<Throwable> capturedError = new AtomicReference<>();
         RuntimeException innerError = new RuntimeException("Inner error");
 
-        Observable.<Integer>create(emitter -> { emitter.onNext(1); emitter.onComplete(); })
+        Observable.<Integer>create(emitter -> {
+                    emitter.onNext(1);
+                    emitter.onComplete();
+                })
                 .flatMap(x -> Observable.<Integer>create(e -> e.onError(innerError)))
-                .subscribe(TestObserver.<Integer>builder().onErrorAction(capturedError::set).build());
+                .subscribe(TestObserver.<Integer>builder()
+                        .onErrorAction(capturedError::set)
+                        .build());
 
         assertThat(capturedError.get()).isSameAs(innerError);
     }
@@ -80,11 +107,19 @@ class FlatMapOperatorTest {
         AtomicReference<Throwable> capturedError = new AtomicReference<>();
 
         Observable.<Integer>create(emitter -> {
-            emitter.onNext(1); emitter.onNext(2); emitter.onNext(3); emitter.onComplete();
+            emitter.onNext(1);
+            emitter.onNext(2);
+            emitter.onNext(3);
+            emitter.onComplete();
         }).flatMap(x -> {
             if (x == 2) throw new IllegalArgumentException("Mapper error!");
-            return Observable.<Integer>create(e -> { e.onNext(x * 2); e.onComplete(); });
-        }).subscribe(TestObserver.<Integer>builder().onErrorAction(capturedError::set).build());
+            return Observable.<Integer>create(e -> {
+                e.onNext(x * 2);
+                e.onComplete();
+            });
+        }).subscribe(TestObserver.<Integer>builder()
+                .onErrorAction(capturedError::set)
+                .build());
 
         assertThat(capturedError.get())
                 .isInstanceOf(IllegalArgumentException.class)
@@ -99,14 +134,20 @@ class FlatMapOperatorTest {
         AtomicBoolean disposed = new AtomicBoolean();
 
         Observable.<Integer>create(emitter -> {
-            emitter.onNext(1); emitter.onNext(2); emitter.onComplete();
-        }).flatMap(x -> Observable.<Integer>create(e -> {
-            if (!e.isDisposed()) e.onNext(x * 2);
-            e.onComplete();
-        })).subscribe(TestObserver.<Integer>builder()
-                .onNextAction(item -> { if (!disposed.get()) emitCount.incrementAndGet(); })
-                .onSubscribeAction(disposableRef::set)
-                .build());
+                    emitter.onNext(1);
+                    emitter.onNext(2);
+                    emitter.onComplete();
+                })
+                .flatMap(x -> Observable.<Integer>create(e -> {
+                    e.onNext(x * 2);
+                    e.onComplete();
+                }))
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(item -> {
+                            if (!disposed.get()) emitCount.incrementAndGet();
+                        })
+                        .onSubscribeAction(disposableRef::set)
+                        .build());
 
         assertThat(disposableRef.get()).isNotNull();
         disposed.set(true);
@@ -120,12 +161,21 @@ class FlatMapOperatorTest {
         List<Integer> received = new ArrayList<>();
 
         Observable.<Integer>create(emitter -> {
-            emitter.onNext(1); emitter.onNext(2); emitter.onComplete();
-        }).flatMap(x -> Observable.<Integer>create(e -> { e.onNext(x * 2); e.onComplete(); }))
+                    emitter.onNext(1);
+                    emitter.onNext(2);
+                    emitter.onComplete();
+                }).flatMap(x -> Observable.<Integer>create(e -> {
+                    e.onNext(x * 2);
+                    e.onComplete();
+                }))
                 .map(x -> x + 10)
-                .subscribe(TestObserver.<Integer>builder().onNextAction(received::add).build());
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(received::add)
+                        .build());
 
-        assertThat(received).hasSize(2).containsExactlyInAnyOrder(12, 14);
+        assertThat(received)
+                .hasSize(2)
+                .containsExactlyInAnyOrder(12, 14);
     }
 
     @Test
@@ -134,10 +184,19 @@ class FlatMapOperatorTest {
         List<Integer> received = new ArrayList<>();
 
         Observable.<Integer>create(emitter -> {
-            emitter.onNext(1); emitter.onNext(2); emitter.onNext(3); emitter.onComplete();
-        }).flatMap(x -> Observable.<Integer>create(e -> { e.onNext(x * 2); e.onNext(x * 3); e.onComplete(); }))
+                    emitter.onNext(1);
+                    emitter.onNext(2);
+                    emitter.onNext(3);
+                    emitter.onComplete();
+                }).flatMap(x -> Observable.<Integer>create(e -> {
+                    e.onNext(x * 2);
+                    e.onNext(x * 3);
+                    e.onComplete();
+                }))
                 .filter(x -> x > 5)
-                .subscribe(TestObserver.<Integer>builder().onNextAction(received::add).build());
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(received::add)
+                        .build());
 
         assertThat(received).allMatch(item -> item > 5);
     }
@@ -149,15 +208,22 @@ class FlatMapOperatorTest {
         AtomicBoolean completed = new AtomicBoolean();
 
         Observable.<Integer>create(emitter -> {
-            emitter.onNext(1); emitter.onNext(2); emitter.onComplete();
-        }).flatMap(x -> Observable.<Integer>create(e -> { e.onNext(x * 10); e.onComplete(); }))
+                    emitter.onNext(1);
+                    emitter.onNext(2);
+                    emitter.onComplete();
+                }).flatMap(x -> Observable.<Integer>create(e -> {
+                    e.onNext(x * 10);
+                    e.onComplete();
+                }))
                 .subscribe(TestObserver.<Integer>builder()
                         .onNextAction(received::add)
                         .onCompleteAction(() -> completed.set(true))
                         .build());
 
         assertThat(completed).isTrue();
-        assertThat(received).hasSize(2).containsExactlyInAnyOrder(10, 20);
+        assertThat(received)
+                .hasSize(2)
+                .containsExactlyInAnyOrder(10, 20);
     }
 
     @Test
@@ -166,13 +232,23 @@ class FlatMapOperatorTest {
         List<Integer> received = new ArrayList<>();
 
         Observable.<Integer>create(emitter -> {
-            emitter.onNext(1); emitter.onNext(2); emitter.onComplete();
-        }).flatMap(x -> Observable.<Integer>create(e -> {
-            for (int i = 1; i <= 3; i++) e.onNext(x * 10 + i);
-            e.onComplete();
-        })).subscribe(TestObserver.<Integer>builder().onNextAction(received::add).build());
+                    emitter.onNext(1);
+                    emitter.onNext(2);
+                    emitter.onComplete();
+                })
+                .flatMap(x -> Observable.<Integer>create(e -> {
+                    e.onNext(x * 10 + 1);
+                    e.onNext(x * 10 + 2);
+                    e.onNext(x * 10 + 3);
+                    e.onComplete();
+                }))
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(received::add)
+                        .build());
 
-        assertThat(received).hasSize(6).containsExactlyInAnyOrder(11, 12, 13, 21, 22, 23);
+        assertThat(received)
+                .hasSize(6)
+                .containsExactlyInAnyOrder(11, 12, 13, 21, 22, 23);
     }
 
     @Test
@@ -182,16 +258,24 @@ class FlatMapOperatorTest {
         AtomicBoolean completed = new AtomicBoolean();
 
         Observable.<Integer>create(emitter -> {
-            emitter.onNext(1); emitter.onNext(2); emitter.onNext(3); emitter.onComplete();
+            emitter.onNext(1);
+            emitter.onNext(2);
+            emitter.onNext(3);
+            emitter.onComplete();
         }).flatMap(x -> {
-            if (x == 2) return Observable.<Integer>create(ObservableEmitter::onComplete);
-            return Observable.<Integer>create(e -> { e.onNext(x * 10); e.onComplete(); });
+            if (x == 2) return Observable.create(ObservableEmitter::onComplete);
+            return Observable.<Integer>create(e -> {
+                e.onNext(x * 10);
+                e.onComplete();
+            });
         }).subscribe(TestObserver.<Integer>builder()
                 .onNextAction(received::add)
                 .onCompleteAction(() -> completed.set(true))
                 .build());
 
-        assertThat(received).hasSize(2).containsExactlyInAnyOrder(10, 30);
+        assertThat(received)
+                .hasSize(2)
+                .containsExactlyInAnyOrder(10, 30);
         assertThat(completed).isTrue();
     }
 
@@ -202,9 +286,13 @@ class FlatMapOperatorTest {
         AtomicBoolean completed = new AtomicBoolean();
 
         Observable.<Integer>create(emitter -> {
-            emitter.onNext(5); emitter.onComplete();
+            emitter.onNext(5);
+            emitter.onComplete();
         }).flatMap(x -> Observable.<Integer>create(e -> {
-            e.onNext(x); e.onNext(x + 1); e.onNext(x + 2); e.onComplete();
+            e.onNext(x);
+            e.onNext(x + 1);
+            e.onNext(x + 2);
+            e.onComplete();
         })).subscribe(TestObserver.<Integer>builder()
                 .onNextAction(received::add)
                 .onCompleteAction(() -> completed.set(true))
@@ -218,12 +306,14 @@ class FlatMapOperatorTest {
     @DisplayName("выбрасывает NPE при null mapper")
     void shouldThrowNPEForNullMapper() {
         AtomicReference<Throwable> capturedError = new AtomicReference<>();
-        Observable<Integer> source = Observable.<Integer>create(emitter -> {
-            emitter.onNext(1); emitter.onComplete();
-        });
-
-        source.<Object>flatMap(null)
-                .subscribe(TestObserver.builder().onErrorAction(capturedError::set).build());
+        Observable.<Integer>create(emitter -> {
+                    emitter.onNext(1);
+                    emitter.onComplete();
+                })
+                .flatMap(null)
+                .subscribe(TestObserver.builder()
+                        .onErrorAction(capturedError::set)
+                        .build());
 
         assertThat(capturedError.get()).isInstanceOf(NullPointerException.class);
     }
@@ -231,15 +321,16 @@ class FlatMapOperatorTest {
     @Test
     @DisplayName("пробрасывает ошибку при ожидающих внутренних Observable")
     void shouldPropagateErrorWithPendingInners() {
-        List<Integer> received = new ArrayList<>();
         AtomicReference<Throwable> capturedError = new AtomicReference<>();
         RuntimeException testError = new RuntimeException("Source error");
 
         Observable.<Integer>create(emitter -> {
-            emitter.onNext(1); emitter.onError(testError);
-        }).flatMap(x -> Observable.<Integer>create(e -> e.onNext(x * 10)))
+                    emitter.onNext(1);
+                    emitter.onError(testError);
+                }).flatMap(x -> Observable.<Integer>create(e -> e.onNext(x * 10)))
                 .subscribe(TestObserver.<Integer>builder()
-                        .onNextAction(received::add)
+                        .onNextAction(item -> {
+                        })
                         .onErrorAction(capturedError::set)
                         .build());
 
@@ -252,10 +343,16 @@ class FlatMapOperatorTest {
         AtomicInteger completeCount = new AtomicInteger();
 
         Observable.<Integer>create(emitter -> {
-            emitter.onNext(1); emitter.onComplete(); emitter.onComplete();
-        }).flatMap(x -> Observable.<Integer>create(e -> { e.onNext(x * 2); e.onComplete(); }))
+                    emitter.onNext(1);
+                    emitter.onComplete();
+                    emitter.onComplete();
+                }).flatMap(x -> Observable.<Integer>create(e -> {
+                    e.onNext(x * 2);
+                    e.onComplete();
+                }))
                 .subscribe(TestObserver.<Integer>builder()
-                        .onNextAction(item -> {})
+                        .onNextAction(item -> {
+                        })
                         .onCompleteAction(completeCount::incrementAndGet)
                         .build());
 
@@ -269,11 +366,16 @@ class FlatMapOperatorTest {
         AtomicReference<Throwable> capturedError = new AtomicReference<>();
 
         Observable.<Integer>create(emitter -> {
-            emitter.onNext(1); emitter.onComplete();
-            emitter.onError(new RuntimeException("Ignored"));
-        }).flatMap(x -> Observable.<Integer>create(e -> { e.onNext(x * 2); e.onComplete(); }))
+                    emitter.onNext(1);
+                    emitter.onComplete();
+                    emitter.onError(new RuntimeException("Ignored"));
+                }).flatMap(x -> Observable.<Integer>create(e -> {
+                    e.onNext(x * 2);
+                    e.onComplete();
+                }))
                 .subscribe(TestObserver.<Integer>builder()
-                        .onNextAction(item -> {})
+                        .onNextAction(item -> {
+                        })
                         .onCompleteAction(() -> completed.set(true))
                         .onErrorAction(capturedError::set)
                         .build());
@@ -286,15 +388,56 @@ class FlatMapOperatorTest {
     @DisplayName("обрабатывает mapper, возвращающий один Observable")
     void shouldHandleSameObservable() {
         List<Integer> received = new ArrayList<>();
-        Observable<Integer> sameInner = Observable.<Integer>create(emitter -> {
-            emitter.onNext(42); emitter.onComplete();
+        Observable<Integer> sameInner = Observable.create(emitter -> {
+            emitter.onNext(42);
+            emitter.onComplete();
         });
 
         Observable.<Integer>create(emitter -> {
-            emitter.onNext(1); emitter.onNext(2); emitter.onComplete();
-        }).flatMap((Integer x) -> sameInner)
+                    emitter.onNext(1);
+                    emitter.onNext(2);
+                    emitter.onComplete();
+                }).flatMap((Integer x) -> sameInner)
                 .subscribe(TestObserver.<Integer>builder().onNextAction(received::add).build());
 
         assertThat(received).hasSize(2).containsExactly(42, 42);
+    }
+
+    @Test
+    @DisplayName("dispose отменяет все внутренние подписки")
+    void shouldDisposeAllInnersOnDownstreamDispose() throws InterruptedException {
+        AtomicReference<Disposable> outerDisposableRef = new AtomicReference<>();
+        CountDownLatch outerDisposed = new CountDownLatch(1);
+        CountDownLatch innerDisposed = new CountDownLatch(2);
+
+        Observable.<Integer>create(emitter -> {
+                    emitter.onNext(1);
+                    emitter.onNext(2);
+                    emitter.onComplete();
+                })
+                .subscribeOn(Schedulers.io())
+                .flatMap(x -> Observable.<Integer>create(e -> {
+                    for (int i = 1; i <= 100; i++) {
+                        if (e.isDisposed()) {
+                            innerDisposed.countDown();
+                            return;
+                        }
+                        e.onNext(x * i);
+                        TimeUnit.MILLISECONDS.sleep(10);
+                    }
+                }).subscribeOn(Schedulers.computation()))
+                .subscribe(TestObserver.<Integer>builder()
+                        .onNextAction(item -> {
+                            if (item == 5) {
+                                outerDisposableRef.get().dispose();
+                                outerDisposed.countDown();
+                            }
+                        })
+                        .onSubscribeAction(outerDisposableRef::set)
+                        .build());
+
+        assertThat(outerDisposed.await(5, TimeUnit.SECONDS)).isTrue();
+        assertThat(innerDisposed.await(5, TimeUnit.SECONDS)).isTrue();
+        assertThat(outerDisposableRef.get().isDisposed()).isTrue();
     }
 }

@@ -5,6 +5,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -18,10 +21,14 @@ class IOThreadSchedulerTest {
     private IOThreadScheduler scheduler;
 
     @BeforeEach
-    void setUp() { scheduler = new IOThreadScheduler(); }
+    void setUp() {
+        scheduler = new IOThreadScheduler();
+    }
 
     @AfterEach
-    void tearDown() { scheduler.shutdown(); }
+    void tearDown() {
+        scheduler.shutdown();
+    }
 
     @Test
     @DisplayName("выполняет задачу в потоке I/O")
@@ -45,7 +52,8 @@ class IOThreadSchedulerTest {
     @DisplayName("выбрасывает исключение после shutdown")
     void shouldThrowAfterShutdown() {
         scheduler.shutdown();
-        assertThatThrownBy(() -> scheduler.execute(() -> {}))
+        assertThatThrownBy(() -> scheduler.execute(() -> {
+        }))
                 .isInstanceOf(RejectedExecutionException.class)
                 .hasMessageContaining("shut down");
     }
@@ -61,11 +69,18 @@ class IOThreadSchedulerTest {
         scheduler.execute(() -> {
             threads[0] = Thread.currentThread();
             firstLatch.countDown();
-            try { releaseLatch.await(2, TimeUnit.SECONDS); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            try {
+                releaseLatch.await(2, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         });
         firstLatch.await(1, TimeUnit.SECONDS);
 
-        scheduler.execute(() -> { threads[1] = Thread.currentThread(); secondLatch.countDown(); });
+        scheduler.execute(() -> {
+            threads[1] = Thread.currentThread();
+            secondLatch.countDown();
+        });
         releaseLatch.countDown();
         secondLatch.await(2, TimeUnit.SECONDS);
 
@@ -87,5 +102,33 @@ class IOThreadSchedulerTest {
         assertThat(scheduler.isShutdown()).isFalse();
         scheduler.shutdown();
         assertThat(scheduler.isShutdown()).isTrue();
+    }
+
+    @Test
+    @DisplayName("создаёт новый поток для каждой задачи")
+    void shouldCreateNewThreadPerConcurrentTask() throws InterruptedException {
+        int taskCount = 10;
+        CountDownLatch blockLatch = new CountDownLatch(1);
+        CountDownLatch allStartedLatch = new CountDownLatch(taskCount);
+        List<String> threadNames = Collections.synchronizedList(new ArrayList<>());
+
+        for (int i = 0; i < taskCount; i++) {
+            scheduler.execute(() -> {
+                threadNames.add(Thread.currentThread().getName());
+                allStartedLatch.countDown();
+                try {
+                    blockLatch.await(5, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+        }
+
+        assertThat(allStartedLatch.await(5, TimeUnit.SECONDS)).isTrue();
+        // Cached thread pool should create new threads when all are busy
+        assertThat(threadNames).hasSize(taskCount);
+        long distinctThreads = threadNames.stream().distinct().count();
+        assertThat(distinctThreads).isGreaterThan(1);
+        blockLatch.countDown();
     }
 }

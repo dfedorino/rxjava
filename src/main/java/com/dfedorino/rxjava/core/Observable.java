@@ -18,6 +18,24 @@ public abstract class Observable<T> {
     protected abstract void subscribeActual(Observer<T> observer);
 
     public static <T> Observable<T> create(ObservableOnSubscribe<T> source) {
+        if (source == null) {
+            return new Observable<>() {
+                @Override
+                protected void subscribeActual(Observer<T> observer) {
+                    observer.onSubscribe(new Disposable() {
+                        @Override
+                        public void dispose() {
+                        }
+
+                        @Override
+                        public boolean isDisposed() {
+                            return true;
+                        }
+                    });
+                    observer.onError(new NullPointerException("source is null"));
+                }
+            };
+        }
         return new Observable<T>() {
             @Override
             protected void subscribeActual(Observer<T> observer) {

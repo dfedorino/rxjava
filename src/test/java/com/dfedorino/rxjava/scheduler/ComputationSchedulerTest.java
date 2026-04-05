@@ -5,6 +5,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -18,10 +21,14 @@ class ComputationSchedulerTest {
     private ComputationScheduler scheduler;
 
     @BeforeEach
-    void setUp() { scheduler = new ComputationScheduler(); }
+    void setUp() {
+        scheduler = new ComputationScheduler();
+    }
 
     @AfterEach
-    void tearDown() { scheduler.shutdown(); }
+    void tearDown() {
+        scheduler.shutdown();
+    }
 
     @Test
     @DisplayName("выполняет задачу в потоке вычислений")
@@ -45,7 +52,8 @@ class ComputationSchedulerTest {
     @DisplayName("выбрасывает исключение после shutdown")
     void shouldThrowAfterShutdown() {
         scheduler.shutdown();
-        assertThatThrownBy(() -> scheduler.execute(() -> {}))
+        assertThatThrownBy(() -> scheduler.execute(() -> {
+        }))
                 .isInstanceOf(RejectedExecutionException.class)
                 .hasMessageContaining("shut down");
     }
@@ -73,5 +81,32 @@ class ComputationSchedulerTest {
         assertThat(scheduler.isShutdown()).isFalse();
         scheduler.shutdown();
         assertThat(scheduler.isShutdown()).isTrue();
+    }
+
+    @Test
+    @DisplayName("использует кол-во потоков по кол-ву ядер")
+    void shouldUseExactlyCpuCoresThreads() throws InterruptedException {
+        int cpuCores = Runtime.getRuntime().availableProcessors();
+        CountDownLatch finishLatch = new CountDownLatch(1);
+        CountDownLatch allRunningLatch = new CountDownLatch(cpuCores);
+        List<String> threadNames = Collections.synchronizedList(new ArrayList<>());
+
+        for (int i = 0; i < cpuCores; i++) {
+            scheduler.execute(() -> {
+                threadNames.add(Thread.currentThread().getName());
+                allRunningLatch.countDown();
+                try {
+                    finishLatch.await(5, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+        }
+
+        assertThat(allRunningLatch.await(5, TimeUnit.SECONDS)).isTrue();
+        assertThat(threadNames).hasSize(cpuCores);
+        long distinctThreads = threadNames.stream().distinct().count();
+        assertThat(distinctThreads).isEqualTo(cpuCores);
+        finishLatch.countDown();
     }
 }
