@@ -9,16 +9,22 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Observable wrapper that switches downstream event processing to a specified Scheduler.
- * Each event (onNext, onError, onComplete) is scheduled as a separate task in the Scheduler.
+ * Observable-обёртка, которая переключает обработку всех downstream-событий
+ * (onNext, onError, onComplete) на указанный Scheduler.
  *
- * @param <T> type of elements in the stream
+ * @param <T> тип элементов потока
  */
-public class ObserveOnObservable<T> extends Observable<T> {
+public final class ObserveOnObservable<T> extends Observable<T> {
 
     private final Observable<T> source;
     private final Scheduler scheduler;
 
+    /**
+     * Создаёт ObserveOnObservable с заданным Scheduler.
+     *
+     * @param source исходный Observable
+     * @param scheduler Scheduler для обработки downstream-событий
+     */
     public ObserveOnObservable(Observable<T> source, Scheduler scheduler) {
         this.source = source;
         this.scheduler = scheduler;
@@ -32,10 +38,10 @@ public class ObserveOnObservable<T> extends Observable<T> {
     }
 
     /**
-     * Observer wrapper that schedules each event (onNext/onError/onComplete)
-     * to be processed in the specified Scheduler.
+     * Observer-обёртка, которая планирует каждое downstream-событие
+     * как отдельную задачу в указанном Scheduler.
      *
-     * @param <T> type of elements in the stream
+     * @param <T> тип элементов потока
      */
     static final class ObserveOnObserver<T> implements Observer<T>, Disposable {
 
