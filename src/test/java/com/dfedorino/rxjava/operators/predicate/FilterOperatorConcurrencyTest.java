@@ -1,7 +1,7 @@
 package com.dfedorino.rxjava.operators.predicate;
 
 import com.dfedorino.rxjava.core.*;
-import com.dfedorino.rxjava.scheduler.IOThreadScheduler;
+import com.dfedorino.rxjava.scheduler.Schedulers;
 import org.junit.jupiter.api.*;
 
 import java.util.concurrent.*;
@@ -16,20 +16,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * Expected failures indicate bugs in the current implementation.
  */
 class FilterOperatorConcurrencyTest {
-
-    private IOThreadScheduler scheduler;
-
-    @BeforeEach
-    void setUp() {
-        scheduler = new IOThreadScheduler();
-    }
-
-    @AfterEach
-    void tearDown() {
-        if (scheduler != null) {
-            scheduler.shutdown();
-        }
-    }
 
     @Test
     @DisplayName("BUG: disposable field visibility - same bug as MapObserver")
@@ -244,7 +230,7 @@ class FilterOperatorConcurrencyTest {
             // Emit from multiple threads
             for (int i = 0; i < 10; i++) {
                 final int value = i;
-                scheduler.execute(() -> {
+                Schedulers.io().execute(() -> {
                     try {
                         startLatch.await();
                         emitter.onNext(value);
@@ -305,7 +291,7 @@ class FilterOperatorConcurrencyTest {
             final int subscriptionId = i;
             
             Observable<Integer> observable = Observable.create(emitter -> {
-                scheduler.execute(() -> {
+                Schedulers.io().execute(() -> {
                     try {
                         startLatch.await(5, TimeUnit.SECONDS);
                         for (int j = 0; j < 100; j++) {
@@ -368,7 +354,7 @@ class FilterOperatorConcurrencyTest {
         
         Observable<Integer> observable = Observable.create(emitter -> {
             for (int i = 0; i < 50; i++) {
-                scheduler.execute(() -> {
+                Schedulers.io().execute(() -> {
                     try {
                         startLatch.await();
                         emitter.onNext(1);

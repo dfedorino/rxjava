@@ -1,7 +1,7 @@
 package com.dfedorino.rxjava.operators.transform;
 
 import com.dfedorino.rxjava.core.*;
-import com.dfedorino.rxjava.scheduler.IOThreadScheduler;
+import com.dfedorino.rxjava.scheduler.Schedulers;
 import org.junit.jupiter.api.*;
 
 import java.util.List;
@@ -19,20 +19,6 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class FlatMapOperatorConcurrencyTest {
 
-    private IOThreadScheduler scheduler;
-
-    @BeforeEach
-    void setUp() {
-        scheduler = new IOThreadScheduler();
-    }
-
-    @AfterEach
-    void tearDown() {
-        if (scheduler != null) {
-            scheduler.shutdown();
-        }
-    }
-
     @Test
     @DisplayName("BUG: Race condition in termination logic - double onComplete")
     void testDoubleOnCompleteRaceCondition() throws InterruptedException {
@@ -49,6 +35,7 @@ class FlatMapOperatorConcurrencyTest {
             
             Observable<Integer> observable = Observable.create(emitter -> {
                 try {
+                    System.out.printf("[%s] startLatch.await %n", Thread.currentThread().getName());
                     startLatch.await();
                     emitter.onNext(1);
                     // Complete immediately after emitting
@@ -59,6 +46,7 @@ class FlatMapOperatorConcurrencyTest {
             });
             
             observable.flatMap(x -> Observable.<Integer>create(innerEmitter -> {
+                System.out.printf("[%s] innerStartedLatch.await %n", Thread.currentThread().getName());
                 innerStartedLatch.countDown();
                 // Slow inner - increases race window
                 Thread.sleep(100);
@@ -82,8 +70,10 @@ class FlatMapOperatorConcurrencyTest {
                     totalCompletes.incrementAndGet();
                 }
             });
-            
+
+            System.out.printf("[%s] startLatch.await %n", Thread.currentThread().getName());
             startLatch.countDown();
+            System.out.printf("[%s] innerStartedLatch.await %n", Thread.currentThread().getName());
             innerStartedLatch.await(1, TimeUnit.SECONDS);
             Thread.sleep(500);
             
@@ -244,7 +234,7 @@ class FlatMapOperatorConcurrencyTest {
         Observable<Integer> observable = Observable.create(emitter -> {
             for (int i = 0; i < numOuterItems; i++) {
                 final int finalI = i;
-                scheduler.execute(() -> {
+                Schedulers.io().execute(() -> {
                     try {
                         startLatch.await();
                         emitter.onNext(finalI);
@@ -603,7 +593,7 @@ class FlatMapOperatorConcurrencyTest {
         AtomicInteger innerCreations = new AtomicInteger(0);
         
         Observable<Integer> observable = Observable.create(emitter -> {
-            scheduler.execute(() -> {
+            Schedulers.io().execute(() -> {
                 try {
                     startLatch.await(5, TimeUnit.SECONDS);
                     for (int i = 0; i < numItems; i++) {
@@ -617,10 +607,10 @@ class FlatMapOperatorConcurrencyTest {
                 }
             });
         });
-        
+
         observable.flatMap(x -> Observable.<Integer>create(innerEmitter -> {
             innerCreations.incrementAndGet();
-            scheduler.execute(() -> {
+            Schedulers.io().execute(() -> {
                 try {
                     Thread.sleep(10);
                     innerEmitter.onNext(x * 2);

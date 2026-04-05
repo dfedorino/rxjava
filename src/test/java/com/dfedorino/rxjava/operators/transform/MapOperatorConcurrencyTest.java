@@ -1,7 +1,7 @@
 package com.dfedorino.rxjava.operators.transform;
 
 import com.dfedorino.rxjava.core.*;
-import com.dfedorino.rxjava.scheduler.IOThreadScheduler;
+import com.dfedorino.rxjava.scheduler.Schedulers;
 import org.junit.jupiter.api.*;
 
 import java.util.List;
@@ -19,20 +19,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * Expected failures indicate bugs in the current implementation.
  */
 class MapOperatorConcurrencyTest {
-
-    private IOThreadScheduler scheduler;
-
-    @BeforeEach
-    void setUp() {
-        scheduler = new IOThreadScheduler();
-    }
-
-    @AfterEach
-    void tearDown() {
-        if (scheduler != null) {
-            scheduler.shutdown();
-        }
-    }
 
     @Test
     @DisplayName("BUG: disposable field visibility - dispose() may not see disposable set in onSubscribe()")
@@ -272,7 +258,7 @@ class MapOperatorConcurrencyTest {
         Observable<Integer> observable = Observable.create(emitter -> {
             for (int i = 0; i < numThreads; i++) {
                 final int threadId = i;
-                scheduler.execute(() -> {
+                Schedulers.io().execute(() -> {
                     try {
                         startLatch.await();
                         for (int j = 0; j < itemsPerThread; j++) {
@@ -337,7 +323,7 @@ class MapOperatorConcurrencyTest {
             final int subscriptionId = i;
             
             Observable<Integer> observable = Observable.create(emitter -> {
-                scheduler.execute(() -> {
+                Schedulers.io().execute(() -> {
                     try {
                         startLatch.await(5, TimeUnit.SECONDS);
                         for (int j = 0; j < 100; j++) {
