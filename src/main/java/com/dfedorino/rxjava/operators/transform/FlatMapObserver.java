@@ -50,13 +50,16 @@ public final class FlatMapObserver<T, R> implements Observer<T>, Disposable {
 
     @Override
     public void onNext(T item) {
+        activeSubscriptions.incrementAndGet();
+
         if (isDisposed.get()) {
+            activeSubscriptions.decrementAndGet();
+            checkTermination();
             return;
         }
 
         try {
             Observable<? extends R> innerObservable = mapper.apply(item);
-            activeSubscriptions.incrementAndGet();
             subscribeInner(innerObservable);
         } catch (Throwable e) {
             activeSubscriptions.decrementAndGet();
@@ -108,9 +111,8 @@ public final class FlatMapObserver<T, R> implements Observer<T>, Disposable {
      */
     void innerComplete() {
         if (activeSubscriptions.decrementAndGet() == 0) {
-            if (sourceCompleted.get() && !isDisposed.get()) {
-                isDisposed.set(true);
-                downstream.onComplete();
+            if (sourceCompleted.get()) {
+                tryTerminate();
             }
         }
     }
@@ -123,10 +125,19 @@ public final class FlatMapObserver<T, R> implements Observer<T>, Disposable {
     }
 
     private void checkTermination() {
-        if (sourceCompleted.get() && activeSubscriptions.get() == 0 && !isDisposed.get()) {
-            isDisposed.set(true);
-            downstream.onComplete();
+        if (sourceCompleted.get() && activeSubscriptions.get() == 0) {
+            tryTerminate();
         }
+    }
+
+    /**
+     * Atomically terminates and sends onComplete exactly once.
+     */
+    private void tryTerminate() {
+        if (isDisposed.getAndSet(true)) {
+            return;
+        }
+        downstream.onComplete();
     }
 
     private void disposeAllInnerSubscriptions() {
